@@ -1,13 +1,22 @@
-# Sample Hardhat Project
+##  Contract Architecture
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+| Contract | Description |
+|-----------|--------------|
+| **LibUjrah.sol** | Library to calculate *ujrah* (fee / reward) for stakers. |
+| **SyariahRegistry.sol** | Manages shariah certification (no riba, gharar, maysir). |
+| **AmanahStakesTreasury.sol** | Stores and releases funds safely. |
+| **AmanahStakesCore.sol** | Main staking logic (stake, claim, withdraw). |
+| **AmanahStakesToken.sol** | (Optional) NFT / SBT proof of staking. |
 
-Try running some of the following tasks:
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.ts
-```
+## Alur testing simple
+
+- Deploy semua kontrak → ambil address-nya
+- Set registry di core (jika perlu)
+- Tambah audit di SyariahRegistry
+- Grant role ke validator/admin
+- Lakukan stake
+- Cek total staking
+- Lakukan unstake
+- Distribusi ujrah lewat Treasury
+- Pause/unpause buat tes keamanan
