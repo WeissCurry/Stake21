@@ -4,191 +4,109 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
- * @title SyariahRegistry
- * @notice Registry untuk sertifikasi dan audit syariah - COMPLETE VERSION
- * @dev Implements all phases: Certification, Audit, Compliance, Periodic Review
+ * @title SyariahRegistry MVP
+ * @notice Registry untuk sertifikasi syariah - MVP VERSION
+ * @dev Focus: ADMIN dan USER roles (Dewan Syariah & Auditor = placeholder only)
  */
 contract SyariahRegistry is AccessControl {
     
     // ============ ROLES ============
     
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    
+    // Placeholder roles (tidak bisa write/read, hanya nama)
     bytes32 public constant DEWAN_SYARIAH_ROLE = keccak256("DEWAN_SYARIAH_ROLE");
     bytes32 public constant AUDITOR_ROLE = keccak256("AUDITOR_ROLE");
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     
     // ============ ENUMS ============
     
-    enum Severity { LOW, MEDIUM, HIGH, CRITICAL }
-    enum ReviewStatus { PENDING, APPROVED, REJECTED }
+    enum ContractStatus { ACTIVE, COMPLETED, CANCELLED }
     
-    // ============ STRUCTS (PACKED) ============
+    // ============ STRUCTS ============
     
-    /// @notice Sertifikat Syariah
-    struct SertifikatSyariah {
-        bool valid;
-        uint64 tanggalSertifikasi;
-        uint64 tanggalExpiry;
-        address dewanSyariah;
-        bytes32 kodeRiba;
-        bytes32 kodeGharar;
-        bytes32 kodeMaysir;
-        bytes32 catatanHash;
+    /// @notice Platform Certificate (simplified)
+    struct PlatformCertificate {
+        bool isActive;
+        uint64 activatedAt;
+        string certificateURI; // IPFS link to certificate doc
     }
     
-    /// @notice Review Submission (Phase 0)
-    struct ReviewSubmission {
-        bytes32 designDocHash;
-        bytes32 contractHash;
-        bytes32 termsHash;
-        ReviewStatus status;
-        uint64 submittedAt;
-        address submittedBy;
-    }
-    
-    /// @notice Compliance Alert (Phase 1-3)
-    /// @dev RENAMED to avoid conflict with event
-    struct Alert {
+    /// @notice User Ijarah Contract
+    struct IjarahContract {
         uint256 contractId;
-        Severity severity;
-        uint64 timestamp;
-        address auditor;
-        bool resolved;
+        address user;
+        uint256 principal; // ETH amount staked
+        uint256 ujrahRate; // Ujrah rate in basis points (e.g., 500 = 5%)
+        uint256 lockPeriod; // Lock period in days
+        uint256 totalUjrah; // Total ujrah to be earned
+        uint64 startTime;
+        uint64 endTime;
+        ContractStatus status;
+        bool withdrawn;
     }
     
     // ============ STATE VARIABLES ============
     
-    SertifikatSyariah public sertifikat;
-    ReviewSubmission public currentReview;
+    PlatformCertificate public platformCert;
     
-    // Audit trail
-    bytes32[] public auditHashes;
-    bytes32[] public complianceReportHashes;
-    bytes32[] public fatwaHashes;
+    // Contract tracking
+    uint256 public nextContractId;
+    mapping(uint256 => IjarahContract) public contracts;
+    mapping(address => uint256[]) public userContracts;
     
-    // Compliance tracking
-    Alert[] public complianceAlerts;
-    mapping(uint256 => bool) public contractCompliance; // contractId => isCompliant
-    
-    // Statistics
-    uint256 public totalAudits;
-    uint256 public totalAlerts;
-    uint256 public resolvedAlerts;
+    // Platform stats
+    uint256 public totalStaked;
+    uint256 public totalUjrahPaid;
+    uint256 public totalActiveContracts;
+    uint256 public totalCompletedContracts;
     
     // ============ EVENTS ============
     
-    // Phase 0: Deployment & Certification
-    event ReviewRequested(
+    // Admin events
+    event PlatformCertified(
         address indexed admin,
-        bytes32 designDocHash,
-        bytes32 contractHash,
-        bytes32 termsHash,
+        string certificateURI,
         uint256 timestamp
     );
     
-    event ReviewApproved(
-        address indexed dewanSyariah,
-        uint256 timestamp
-    );
-    
-    event ReviewRejected(
-        address indexed dewanSyariah,
+    event PlatformSuspended(
+        address indexed admin,
         string reason,
         uint256 timestamp
     );
     
-    event SertifikatDiterbitkan(
-        address indexed dewanSyariah,
-        uint256 timestamp,
-        bytes32 certificateHash
-    );
-    
-    event SertifikatDirevoke(
-        address indexed dewanSyariah,
-        string reason,
-        uint256 timestamp
-    );
-    
-    // Phase 1-3: Audit & Compliance
-    event AuditDilakukan(
-        uint256 indexed timestamp,
-        address indexed auditor,
-        bytes32 indexed jenisAuditHash,
-        string jenisAuditText,
-        string hasilText,
-        bytes32 dataHash
-    );
-    
-    event ComplianceAlertCreated(
-        uint256 indexed alertId,
+    // User events
+    event IjarahContractCreated(
         uint256 indexed contractId,
-        string reason,
-        Severity severity,
+        address indexed user,
+        uint256 principal,
+        uint256 ujrahRate,
+        uint256 lockPeriod,
+        uint256 totalUjrah,
+        uint64 startTime,
+        uint64 endTime,
         uint256 timestamp
     );
     
-    event ComplianceAlertResolved(
-        uint256 indexed alertId,
-        address indexed resolver,
-        uint256 timestamp
-    );
-    
-    event IjarahContractVerified(
+    event UjrahClaimed(
         uint256 indexed contractId,
-        address indexed auditor,
-        bool isCompliant,
+        address indexed user,
+        uint256 ujrahAmount,
         uint256 timestamp
     );
     
-    event UjrahVerified(
+    event ContractCompleted(
         uint256 indexed contractId,
-        uint256 expectedUjrah,
-        uint256 actualUjrah,
-        bool isCorrect,
-        uint256 timestamp
-    );
-    
-    event TreasuryVerified(
-        uint256 totalStaked,
+        address indexed user,
+        uint256 principalReturned,
         uint256 totalUjrahPaid,
-        bool isBalanced,
         uint256 timestamp
     );
     
-    event ComplianceReportPublished(
-        bytes32 indexed ipfsHash,
-        address indexed auditor,
-        uint256 timestamp
-    );
-    
-    event WithdrawalVerified(
+    event ContractCancelled(
         uint256 indexed contractId,
-        address indexed auditor,
-        bool isValid,
-        uint256 timestamp
-    );
-    
-    // Phase 4: Periodic Review
-    event QuarterlyAuditPublished(
-        bytes32 indexed ipfsHash,
-        address indexed auditor,
-        uint256 timestamp
-    );
-    
-    event CertificateRenewed(
-        bytes32 indexed newCertificateHash,
-        uint64 newExpiryDate,
-        uint256 timestamp
-    );
-    
-    event FatwaUpdated(
-        string topic,
-        bytes32 indexed fatwaIPFSHash,
-        uint256 timestamp
-    );
-    
-    event OperationsSuspended(
+        address indexed user,
         string reason,
-        address indexed dewanSyariah,
         uint256 timestamp
     );
     
@@ -200,525 +118,350 @@ contract SyariahRegistry is AccessControl {
     }
     
     // ============================================================
-    // PHASE 0: DEPLOYMENT & CERTIFICATION
+    // ADMIN FUNCTIONS
     // ============================================================
     
     /**
-     * @notice Admin submit platform for Syariah review
-     * @dev Step 1 of certification process
+     * @notice Admin activate platform with certificate
+     * @dev Simplified: Admin self-certifies for MVP
      */
-    function submitForReview(
-        bytes32 _designDocHash,
-        bytes32 _contractHash,
-        bytes32 _termsHash
-    ) external onlyRole(ADMIN_ROLE) {
-        require(currentReview.status != ReviewStatus.PENDING, "Review already pending");
-        
-        currentReview = ReviewSubmission({
-            designDocHash: _designDocHash,
-            contractHash: _contractHash,
-            termsHash: _termsHash,
-            status: ReviewStatus.PENDING,
-            submittedAt: uint64(block.timestamp),
-            submittedBy: msg.sender
-        });
-        
-        emit ReviewRequested(
-            msg.sender,
-            _designDocHash,
-            _contractHash,
-            _termsHash,
-            block.timestamp
-        );
-    }
-    
-    /**
-     * @notice Dewan Syariah approve review & issue certificate
-     * @dev Step 2: Approve after reviewing design, contract, and terms
-     */
-    function approveReviewAndIssueCertificate(
-        bytes32 _kodeRiba,
-        bytes32 _kodeGharar,
-        bytes32 _kodeMaysir,
-        bytes32 _catatanHash,
-        uint64 _expiryInDays
-    ) external onlyRole(DEWAN_SYARIAH_ROLE) {
-        require(currentReview.status == ReviewStatus.PENDING, "No pending review");
-        
-        // Mark review as approved
-        currentReview.status = ReviewStatus.APPROVED;
-        
-        // Issue certificate
-        uint64 expiryDate = uint64(block.timestamp) + (_expiryInDays * 1 days);
-        
-        sertifikat = SertifikatSyariah({
-            valid: true,
-            tanggalSertifikasi: uint64(block.timestamp),
-            tanggalExpiry: expiryDate,
-            dewanSyariah: msg.sender,
-            kodeRiba: _kodeRiba,
-            kodeGharar: _kodeGharar,
-            kodeMaysir: _kodeMaysir,
-            catatanHash: _catatanHash
-        });
-        
-        emit ReviewApproved(msg.sender, block.timestamp);
-        emit SertifikatDiterbitkan(msg.sender, block.timestamp, _catatanHash);
-    }
-    
-    /**
-     * @notice Dewan Syariah reject review with reason
-     */
-    function rejectReview(string calldata _reason) 
-        external 
-        onlyRole(DEWAN_SYARIAH_ROLE) 
-    {
-        require(currentReview.status == ReviewStatus.PENDING, "No pending review");
-        
-        currentReview.status = ReviewStatus.REJECTED;
-        
-        emit ReviewRejected(msg.sender, _reason, block.timestamp);
-    }
-    
-    /**
-     * @notice Revoke certificate with reason
-     */
-    function revokeSertifikat(string calldata _reason) 
-        external 
-        onlyRole(DEWAN_SYARIAH_ROLE) 
-    {
-        require(sertifikat.valid, "Certificate already invalid");
-        
-        sertifikat.valid = false;
-        
-        emit SertifikatDirevoke(msg.sender, _reason, block.timestamp);
-    }
-    
-    // ============================================================
-    // PHASE 1: USER STAKING - AUDITOR MONITORING
-    // ============================================================
-    
-    /**
-     * @notice Auditor verify Ijarah contract compliance
-     * @dev Check ujrah calculation, lock period, no hidden fees
-     */
-    function verifyIjarahContract(
-        uint256 _contractId,
-        uint256 _ethAmount,
-        uint256 _ujrahCalculated,
-        uint256 _lockPeriod,
-        uint256 _ujrahRate
-    ) external onlyRole(AUDITOR_ROLE) returns (bool isCompliant) {
-        // Verify ujrah calculation: (ethAmount * rate * period) / (365 * 10000)
-        uint256 expectedUjrah = (_ethAmount * _ujrahRate * _lockPeriod) / (365 * 10000);
-        
-        isCompliant = (expectedUjrah == _ujrahCalculated);
-        
-        contractCompliance[_contractId] = isCompliant;
-        
-        emit IjarahContractVerified(
-            _contractId,
-            msg.sender,
-            isCompliant,
-            block.timestamp
-        );
-        
-        return isCompliant;
-    }
-    
-    /**
-     * @notice Auditor flag non-compliant activity
-     * @dev Phase 1-3: Flag issues with severity level
-     */
-    function flagNonCompliantActivity(
-        uint256 _contractId,
-        string calldata _reason,
-        Severity _severity
-    ) public onlyRole(AUDITOR_ROLE) returns (uint256 alertId) {
-        alertId = complianceAlerts.length;
-        
-        complianceAlerts.push(Alert({
-            contractId: _contractId,
-            severity: _severity,
-            timestamp: uint64(block.timestamp),
-            auditor: msg.sender,
-            resolved: false
-        }));
-        
-        totalAlerts++;
-        contractCompliance[_contractId] = false;
-        
-        emit ComplianceAlertCreated(
-            alertId,
-            _contractId,
-            _reason,
-            _severity,
-            block.timestamp
-        );
-        
-        return alertId;
-    }
-    
-    /**
-     * @notice Admin resolve compliance alert
-     */
-    function resolveComplianceAlert(uint256 _alertId) 
+    function activatePlatform(string calldata _certificateURI) 
         external 
         onlyRole(ADMIN_ROLE) 
     {
-        require(_alertId < complianceAlerts.length, "Invalid alert ID");
-        require(!complianceAlerts[_alertId].resolved, "Already resolved");
+        require(!platformCert.isActive, "Platform already active");
         
-        complianceAlerts[_alertId].resolved = true;
-        resolvedAlerts++;
+        platformCert = PlatformCertificate({
+            isActive: true,
+            activatedAt: uint64(block.timestamp),
+            certificateURI: _certificateURI
+        });
         
-        emit ComplianceAlertResolved(_alertId, msg.sender, block.timestamp);
+        emit PlatformCertified(msg.sender, _certificateURI, block.timestamp);
+    }
+    
+    /**
+     * @notice Admin suspend platform operations
+     */
+    function suspendPlatform(string calldata _reason) 
+        external 
+        onlyRole(ADMIN_ROLE) 
+    {
+        require(platformCert.isActive, "Platform not active");
+        
+        platformCert.isActive = false;
+        
+        emit PlatformSuspended(msg.sender, _reason, block.timestamp);
+    }
+    
+    /**
+     * @notice Admin update certificate URI
+     */
+    function updateCertificate(string calldata _newCertificateURI) 
+        external 
+        onlyRole(ADMIN_ROLE) 
+    {
+        platformCert.certificateURI = _newCertificateURI;
+        platformCert.activatedAt = uint64(block.timestamp);
+    }
+    
+    /**
+     * @notice Admin manually complete contract (emergency)
+     */
+    function adminCompleteContract(uint256 _contractId, string calldata _reason) 
+        external 
+        onlyRole(ADMIN_ROLE) 
+    {
+        IjarahContract storage c = contracts[_contractId];
+        require(c.user != address(0), "Contract not found");
+        require(c.status == ContractStatus.ACTIVE, "Contract not active");
+        
+        c.status = ContractStatus.COMPLETED;
+        totalActiveContracts--;
+        totalCompletedContracts++;
+        
+        emit ContractCancelled(_contractId, c.user, _reason, block.timestamp);
     }
     
     // ============================================================
-    // PHASE 2: OPERATIONAL STAKING - WEEKLY VERIFICATION
+    // USER FUNCTIONS
     // ============================================================
     
     /**
-     * @notice Auditor verify ujrah calculation
-     * @dev Weekly check: compare expected vs actual ujrah
+     * @notice User create Ijarah contract (stake ETH)
+     * @param _ujrahRate Ujrah rate in basis points (e.g., 500 = 5% annually)
+     * @param _lockPeriodDays Lock period in days
      */
-    function verifyUjrahCalculation(
-        uint256 _contractId,
-        uint256 _principal,
-        uint256 _rate,
-        uint256 _time,
-        uint256 _actualUjrahPaid
-    ) external onlyRole(AUDITOR_ROLE) returns (bool isCorrect) {
-        // Expected: (principal * rate * time) / (365 days * 10000)
-        uint256 expectedUjrah = (_principal * _rate * _time) / (365 * 10000);
+    function createIjarahContract(
+        uint256 _ujrahRate,
+        uint256 _lockPeriodDays
+    ) external payable returns (uint256 contractId) {
+        require(platformCert.isActive, "Platform not active");
+        require(msg.value > 0, "Must stake ETH");
+        require(_lockPeriodDays >= 7, "Minimum 7 days lock");
+        require(_lockPeriodDays <= 365, "Maximum 365 days lock");
+        require(_ujrahRate <= 2000, "Max 20% ujrah rate");
         
-        isCorrect = (expectedUjrah == _actualUjrahPaid);
+        contractId = nextContractId++;
         
-        emit UjrahVerified(
-            _contractId,
-            expectedUjrah,
-            _actualUjrahPaid,
-            isCorrect,
+        // Calculate total ujrah: (principal * rate * days) / (365 * 10000)
+        uint256 totalUjrah = (msg.value * _ujrahRate * _lockPeriodDays) / (365 * 10000);
+        
+        uint64 startTime = uint64(block.timestamp);
+        uint64 endTime = startTime + uint64(_lockPeriodDays * 1 days);
+        
+        contracts[contractId] = IjarahContract({
+            contractId: contractId,
+            user: msg.sender,
+            principal: msg.value,
+            ujrahRate: _ujrahRate,
+            lockPeriod: _lockPeriodDays,
+            totalUjrah: totalUjrah,
+            startTime: startTime,
+            endTime: endTime,
+            status: ContractStatus.ACTIVE,
+            withdrawn: false
+        });
+        
+        userContracts[msg.sender].push(contractId);
+        
+        totalStaked += msg.value;
+        totalActiveContracts++;
+        
+        emit IjarahContractCreated(
+            contractId,
+            msg.sender,
+            msg.value,
+            _ujrahRate,
+            _lockPeriodDays,
+            totalUjrah,
+            startTime,
+            endTime,
             block.timestamp
         );
         
-        if (!isCorrect) {
-            this.flagNonCompliantActivity(
-                _contractId,
-                "Ujrah miscalculation detected",
-                Severity.HIGH
-            );
+        return contractId;
+    }
+    
+    /**
+     * @notice User claim ujrah (can be called multiple times during lock period)
+     * @dev Calculates pro-rata ujrah based on time elapsed
+     */
+    function claimUjrah(uint256 _contractId) external returns (uint256 ujrahAmount) {
+        IjarahContract storage c = contracts[_contractId];
+        require(c.user == msg.sender, "Not contract owner");
+        require(c.status == ContractStatus.ACTIVE, "Contract not active");
+        
+        // Calculate earned ujrah based on time elapsed
+        uint256 timeElapsed = block.timestamp - c.startTime;
+        uint256 totalDuration = c.endTime - c.startTime;
+        
+        if (timeElapsed > totalDuration) {
+            timeElapsed = totalDuration;
         }
         
-        return isCorrect;
+        uint256 earnedUjrah = (c.totalUjrah * timeElapsed) / totalDuration;
+        
+        // Simple approach: track what's been paid (in real implementation, use more sophisticated tracking)
+        ujrahAmount = earnedUjrah; // Simplified: pay all earned so far
+        
+        require(ujrahAmount > 0, "No ujrah to claim");
+        
+        totalUjrahPaid += ujrahAmount;
+        
+        // Transfer ujrah (from contract balance)
+        payable(msg.sender).transfer(ujrahAmount);
+        
+        emit UjrahClaimed(_contractId, msg.sender, ujrahAmount, block.timestamp);
+        
+        return ujrahAmount;
     }
     
     /**
-     * @notice Auditor verify treasury allocation
-     * @dev Check: total staked = sum of principals, ujrah paid <= rewards earned
+     * @notice User withdraw principal after lock period ends
      */
-    function verifyTreasuryAllocation(
-        uint256 _totalStaked,
-        uint256 _totalUjrahPaid,
-        uint256 _treasuryBalance
-    ) external onlyRole(AUDITOR_ROLE) returns (bool isBalanced) {
-        // Simple check: treasury should have enough for staked + ujrah
-        isBalanced = (_treasuryBalance >= _totalStaked);
+    function withdrawPrincipal(uint256 _contractId) external {
+        IjarahContract storage c = contracts[_contractId];
+        require(c.user == msg.sender, "Not contract owner");
+        require(c.status == ContractStatus.ACTIVE, "Contract not active");
+        require(block.timestamp >= c.endTime, "Lock period not ended");
+        require(!c.withdrawn, "Already withdrawn");
         
-        emit TreasuryVerified(
-            _totalStaked,
-            _totalUjrahPaid,
-            isBalanced,
-            block.timestamp
-        );
+        c.status = ContractStatus.COMPLETED;
+        c.withdrawn = true;
         
-        if (!isBalanced) {
-            this.flagNonCompliantActivity(
-                0, // Platform-level issue
-                "Treasury mismatch detected",
-                Severity.CRITICAL
-            );
-        }
+        totalStaked -= c.principal;
+        totalActiveContracts--;
+        totalCompletedContracts++;
         
-        return isBalanced;
-    }
-    
-    /**
-     * @notice Auditor publish monthly compliance report
-     */
-    function publishComplianceReport(bytes32 _ipfsHash) 
-        external 
-        onlyRole(AUDITOR_ROLE) 
-    {
-        complianceReportHashes.push(_ipfsHash);
+        // Return principal
+        payable(msg.sender).transfer(c.principal);
         
-        emit ComplianceReportPublished(
-            _ipfsHash,
-            msg.sender,
-            block.timestamp
-        );
-    }
-    
-    /**
-     * @notice Record audit activity (general)
-     */
-    function catatAudit(
-        bytes32 _jenisAuditHash,
-        bytes32 _hasilHash,
-        string calldata _jenisAuditText,
-        string calldata _hasilText
-    ) external onlyRole(AUDITOR_ROLE) {
-        bytes32 dataHash = keccak256(
-            abi.encodePacked(
-                block.timestamp,
-                msg.sender,
-                _jenisAuditHash,
-                _hasilHash,
-                keccak256(bytes(_jenisAuditText)),
-                keccak256(bytes(_hasilText))
-            )
-        );
-
-        auditHashes.push(dataHash);
-        totalAudits++;
-
-        emit AuditDilakukan(
-            block.timestamp,
-            msg.sender,
-            _jenisAuditHash,
-            _jenisAuditText,
-            _hasilText,
-            dataHash
-        );
-    }
-    
-    // ============================================================
-    // PHASE 3: WITHDRAWAL - AUDITOR VERIFICATION
-    // ============================================================
-    
-    /**
-     * @notice Auditor verify withdrawal transaction
-     * @dev Check: principal returned = deposit, ujrah paid, NFT burned
-     */
-    function verifyWithdrawal(
-        uint256 _contractId,
-        uint256 _originalDeposit,
-        uint256 _amountWithdrawn,
-        bool _ujrahPaid,
-        bool _nftBurned
-    ) external onlyRole(AUDITOR_ROLE) returns (bool isValid) {
-        isValid = (
-            _originalDeposit == _amountWithdrawn &&
-            _ujrahPaid &&
-            _nftBurned
-        );
-        
-        emit WithdrawalVerified(
+        emit ContractCompleted(
             _contractId,
             msg.sender,
-            isValid,
+            c.principal,
+            c.totalUjrah,
             block.timestamp
         );
-        
-        if (!isValid) {
-            this.flagNonCompliantActivity(
-                _contractId,
-                "Invalid withdrawal detected",
-                Severity.HIGH
-            );
-        }
-        
-        return isValid;
     }
     
     /**
-     * @notice Auditor alert for large withdrawal
+     * @notice User request early withdrawal (with penalty)
+     * @dev Simplified: Admin must approve in real implementation
      */
-    function alertLargeWithdrawal(
-          uint256 _contractId,
-            uint256, // _amount
-    uint256  // _liquidityImpact
-    ) external onlyRole(AUDITOR_ROLE) {
-        this.flagNonCompliantActivity(
+    function requestEarlyWithdrawal(uint256 _contractId) external {
+        IjarahContract storage c = contracts[_contractId];
+        require(c.user == msg.sender, "Not contract owner");
+        require(c.status == ContractStatus.ACTIVE, "Contract not active");
+        require(!c.withdrawn, "Already withdrawn");
+        
+        // Early withdrawal penalty: lose 10% of principal
+        uint256 penalty = c.principal / 10;
+        uint256 returnAmount = c.principal - penalty;
+        
+        c.status = ContractStatus.CANCELLED;
+        c.withdrawn = true;
+        
+        totalStaked -= c.principal;
+        totalActiveContracts--;
+        
+        // Return reduced principal
+        payable(msg.sender).transfer(returnAmount);
+        
+        emit ContractCancelled(
             _contractId,
-            "Large withdrawal impacting liquidity",
-            Severity.MEDIUM
-        );
-    }
-    
-    // ============================================================
-    // PHASE 4: PERIODIC REVIEW - QUARTERLY
-    // ============================================================
-    
-    /**
-     * @notice Auditor publish quarterly audit report
-     * @dev Compile 3 months of data
-     */
-    function publishQuarterlyAudit(bytes32 _ipfsHash) 
-        external 
-        onlyRole(AUDITOR_ROLE) 
-    {
-        emit QuarterlyAuditPublished(
-            _ipfsHash,
             msg.sender,
+            "Early withdrawal with penalty",
             block.timestamp
         );
-    }
-    
-    /**
-     * @notice Dewan Syariah renew certificate
-     * @dev After reviewing quarterly audit
-     */
-    function renewSertifikat(
-        bytes32 _newCertificateHash,
-        uint64 _expiryInDays
-    ) external onlyRole(DEWAN_SYARIAH_ROLE) {
-        require(sertifikat.valid, "No active certificate to renew");
-        
-        uint64 newExpiry = uint64(block.timestamp) + (_expiryInDays * 1 days);
-        
-        sertifikat.tanggalSertifikasi = uint64(block.timestamp);
-        sertifikat.tanggalExpiry = newExpiry;
-        sertifikat.catatanHash = _newCertificateHash;
-        
-        emit CertificateRenewed(
-            _newCertificateHash,
-            newExpiry,
-            block.timestamp
-        );
-    }
-    
-    /**
-     * @notice Dewan Syariah update fatwa
-     */
-    function updateFatwa(
-        string calldata _topic,
-        bytes32 _fatwaIPFSHash
-    ) external onlyRole(DEWAN_SYARIAH_ROLE) {
-        fatwaHashes.push(_fatwaIPFSHash);
-        
-        emit FatwaUpdated(_topic, _fatwaIPFSHash, block.timestamp);
-    }
-    
-    /**
-     * @notice Dewan Syariah suspend operations
-     * @dev For major violations
-     */
-    function suspendOperations(string calldata _reason) 
-        external 
-        onlyRole(DEWAN_SYARIAH_ROLE) 
-    {
-        sertifikat.valid = false;
-        
-        emit OperationsSuspended(_reason, msg.sender, block.timestamp);
     }
     
     // ============================================================
     // VIEW FUNCTIONS
     // ============================================================
     
-    function isPlatformCertified() external view returns (bool) {
-        return sertifikat.valid && block.timestamp < sertifikat.tanggalExpiry;
-    }
-    
-    function getReviewStatus() external view returns (
-        ReviewStatus status,
-        uint64 submittedAt,
-        address submittedBy
-    ) {
-        return (
-            currentReview.status,
-            currentReview.submittedAt,
-            currentReview.submittedBy
-        );
+    function isPlatformActive() external view returns (bool) {
+        return platformCert.isActive;
     }
     
     function getCertificateInfo() external view returns (
-        bool valid,
-        uint64 issuedAt,
-        uint64 expiresAt,
-        address issuedBy,
-        bytes32 certificateHash
+        bool isActive,
+        uint64 activatedAt,
+        string memory certificateURI
     ) {
         return (
-            sertifikat.valid,
-            sertifikat.tanggalSertifikasi,
-            sertifikat.tanggalExpiry,
-            sertifikat.dewanSyariah,
-            sertifikat.catatanHash
+            platformCert.isActive,
+            platformCert.activatedAt,
+            platformCert.certificateURI
         );
     }
     
-    function getComplianceStats() external view returns (
-        uint256 totalAuditsCount,
-        uint256 totalAlertsCount,
-        uint256 resolvedAlertsCount,
-        uint256 complianceRate
+    function getContract(uint256 _contractId) external view returns (
+        address user,
+        uint256 principal,
+        uint256 ujrahRate,
+        uint256 lockPeriod,
+        uint256 totalUjrah,
+        uint64 startTime,
+        uint64 endTime,
+        ContractStatus status,
+        bool withdrawn
     ) {
-        uint256 rate = totalAlerts > 0 
-            ? (resolvedAlerts * 10000) / totalAlerts 
-            : 10000;
-        
-        return (totalAudits, totalAlerts, resolvedAlerts, rate);
-    }
-    
-    function getAlert(uint256 _alertId) external view returns (
-        uint256 contractId,
-        Severity severity,
-        uint64 timestamp,
-        address auditor,
-        bool resolved
-    ) {
-        require(_alertId < complianceAlerts.length, "Invalid alert ID");
-        Alert memory alert = complianceAlerts[_alertId];
-        
+        IjarahContract memory c = contracts[_contractId];
         return (
-            alert.contractId,
-            alert.severity,
-            alert.timestamp,
-            alert.auditor,
-            alert.resolved
+            c.user,
+            c.principal,
+            c.ujrahRate,
+            c.lockPeriod,
+            c.totalUjrah,
+            c.startTime,
+            c.endTime,
+            c.status,
+            c.withdrawn
         );
     }
     
-    function getTotalComplianceReports() external view returns (uint256) {
-        return complianceReportHashes.length;
+    function getUserContracts(address _user) external view returns (uint256[] memory) {
+        return userContracts[_user];
     }
     
-    function getTotalFatwas() external view returns (uint256) {
-        return fatwaHashes.length;
+    function getPlatformStats() external view returns (
+        uint256 totalStakedAmount,
+        uint256 totalUjrahPaidAmount,
+        uint256 activeContracts,
+        uint256 completedContracts
+    ) {
+        return (
+            totalStaked,
+            totalUjrahPaid,
+            totalActiveContracts,
+            totalCompletedContracts
+        );
     }
     
-    function verifyAuditHash(bytes32 _hash) external view returns (bool) {
-        for (uint256 i = 0; i < auditHashes.length; i++) {
-            if (auditHashes[i] == _hash) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    function isContractCompliant(uint256 _contractId) external view returns (bool) {
-        return contractCompliance[_contractId];
-    }
-    
-    // ============================================================
-    // UTILITY
-    // ============================================================
-    
-    function stringToBytes32(string memory source) 
-        public 
-        pure 
-        returns (bytes32 result) 
-    {
-        bytes memory tempEmptyStringTest = bytes(source);
-        if (tempEmptyStringTest.length == 0) {
-            return 0x0;
+    function calculateEarnedUjrah(uint256 _contractId) external view returns (uint256) {
+        IjarahContract memory c = contracts[_contractId];
+        require(c.user != address(0), "Contract not found");
+        
+        if (c.status != ContractStatus.ACTIVE) {
+            return 0;
         }
         
-        assembly {
-            result := mload(add(source, 32))
+        uint256 timeElapsed = block.timestamp - c.startTime;
+        uint256 totalDuration = c.endTime - c.startTime;
+        
+        if (timeElapsed > totalDuration) {
+            timeElapsed = totalDuration;
         }
+        
+        return (c.totalUjrah * timeElapsed) / totalDuration;
     }
+    
+    function getTimeRemaining(uint256 _contractId) external view returns (uint256) {
+        IjarahContract memory c = contracts[_contractId];
+        
+        if (block.timestamp >= c.endTime) {
+            return 0;
+        }
+        
+        return c.endTime - block.timestamp;
+    }
+    
+    // ============================================================
+    // ADMIN TREASURY MANAGEMENT
+    // ============================================================
+    
+    /**
+     * @notice Admin deposit ETH for ujrah payments
+     */
+    function depositTreasury() external payable onlyRole(ADMIN_ROLE) {
+        require(msg.value > 0, "Must deposit ETH");
+    }
+    
+    /**
+     * @notice Admin withdraw excess treasury (emergency)
+     */
+    function withdrawTreasury(uint256 _amount) external onlyRole(ADMIN_ROLE) {
+        require(_amount <= address(this).balance - totalStaked, "Cannot withdraw staked funds");
+        payable(msg.sender).transfer(_amount);
+    }
+    
+    function getTreasuryBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+    
+    function getAvailableTreasury() external view returns (uint256) {
+        uint256 balance = address(this).balance;
+        if (balance <= totalStaked) {
+            return 0;
+        }
+        return balance - totalStaked;
+    }
+    
+    // ============================================================
+    // FALLBACK
+    // ============================================================
+    
+    receive() external payable {}
 }

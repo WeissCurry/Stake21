@@ -1,0 +1,17 @@
+{
+  "network": "baseSepolia",
+  "chainId": "84532",
+  "deployer": "0x027822307511a055eb0f5907f2685dab1204e14b",
+  "timestamp": "2025-10-10T15:59:31.534Z",
+  "contracts": {
+    "SyariahRegistry": {
+      "address": "0x6780dcae2783d63dc453a15c452d81405ee4263d",
+      "certificateURI": "ipfs://QmExampleCertificateHash"
+    },
+    "AmanahStakesCore": {
+      "address": "0x5c0d935236238b34205d416bd3da0856a54c8618",
+      "termsHash": "0xb0d9c3a753f5f6fb70ef5167ef24bc7c4d054a179255d9b546dd0416cdd99b52",
+      "termsIPFS": "QmExampleIPFSHashForIjarahTermsV1"
+    }
+  }
+}

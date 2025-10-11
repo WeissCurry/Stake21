@@ -4,557 +4,177 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "./AmanahStakesToken.sol";
-import "./SyariahRegistry.sol";
-import "./AmanahStakesTreasury.sol";
-import "./libraries/LibUjrah.sol";
 
 /**
- * @title AmanahStakesCore
- * @notice Core logic untuk platform staking syariah - COMPLETE VERSION
- * @dev Implements all phases: Certification, Staking, Operations, Withdrawal, Review
+ * @title AmanahStakesCore MVP
+ * @notice Core logic untuk platform staking syariah - MVP VERSION
+ * @dev Focus: ADMIN dan USER roles only (Dewan Syariah = placeholder)
  */
 contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
     
-    using LibUjrah for uint256;
-    
-    // ============ ROLES (SIMPLIFIED) ============
+    // ============ ROLES ============
     
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    
+    // Placeholder role (tidak bisa write/read, hanya nama)
     bytes32 public constant DEWAN_SYARIAH_ROLE = keccak256("DEWAN_SYARIAH_ROLE");
     
-    // ============ STRUCTS (PACKED) ============
+    // ============ ENUMS ============
     
-    enum StatusAkad {
-        DRAFT,              // 0 - Belum approve
-        AKTIF,              // 1 - Approved, belum staking
-        STAKING,            // 2 - Sedang staking
-        MENUNGGU_PENARIKAN, // 3 - User request withdrawal
-        SELESAI,            // 4 - Completed
-        DIBATALKAN          // 5 - Cancelled
+    enum AkadStatus {
+        ACTIVE,      // Sedang staking
+        COMPLETED,   // Selesai & withdrawn
+        CANCELLED    // Dibatalkan (early withdrawal)
     }
     
-    /// @notice Akad Ijarah (Optimized packing)
+    // ============ STRUCTS ============
+    
+    /// @notice Akad Ijarah (Simplified & Optimized)
     struct AkadIjarah {
-        address mujir;              // 20 bytes
-        uint128 ethAmount;          // 16 bytes
-        uint128 ujrahTetap;         // 16 bytes
-        uint64 periodeAwal;         // 8 bytes
-        uint64 periodeAkhir;        // 8 bytes
-        uint64 timestampDeposit;    // 8 bytes
-        uint64 timestampPenarikan;  // 8 bytes
-        uint32 tokenId;             // 4 bytes
-        StatusAkad status;          // 1 byte
-        bool ujrahDibayar;          // 1 byte
-        bool termsAgreed;           // 1 byte - NEW
+        address user;              // User address
+        uint128 principal;         // ETH amount staked
+        uint128 ujrahAmount;       // Total ujrah earned
+        uint64 startTime;          // Start timestamp
+        uint64 endTime;            // End timestamp (lockup)
+        uint32 lockPeriodDays;     // Lock period in days
+        uint32 ujrahRate;          // Ujrah rate in basis points (e.g., 400 = 4%)
+        AkadStatus status;         // Current status
+        bool ujrahClaimed;         // Whether ujrah has been claimed
     }
     
-    /// @notice Protocol Config (Packed)
-    struct ProtocolConfig {
-        uint128 minStake;           // 16 bytes
-        uint128 maxStake;           // 16 bytes
-        uint32 ujrahBasisPoints;    // 4 bytes (e.g., 400 = 4%)
-        uint32 periodeLockupDays;   // 4 bytes
-        bool protokolAktif;         // 1 byte
+    /// @notice Platform Configuration
+    struct PlatformConfig {
+        uint128 minStake;          // Minimum stake amount
+        uint128 maxStake;          // Maximum stake amount
+        uint32 ujrahRateBps;       // Default ujrah rate (basis points)
+        uint32 minLockDays;        // Minimum lock period
+        uint32 maxLockDays;        // Maximum lock period
+        uint32 earlyWithdrawalPenaltyBps; // Penalty for early withdrawal (basis points)
+        bool isActive;             // Platform active status
     }
     
     // ============ STATE VARIABLES ============
     
-    AmanahStakesToken public immutable token;
-    SyariahRegistry public immutable registry;
-    AmanahStakesTreasury public immutable treasury;
+    PlatformConfig public config;
     
-    uint256 private _tokenIdCounter;
-    
+    // Akad tracking
+    uint256 public nextAkadId;
     mapping(uint256 => AkadIjarah) public akads;
     mapping(address => uint256[]) public userAkads;
-    mapping(address => bool) public hasAgreedToTerms; // NEW: Phase 1
     
-    ProtocolConfig public config;
-    bytes32 public currentTermsHash; // NEW: Current Ijarah terms
+    // Platform statistics
+    uint128 public totalStaked;
+    uint128 public totalUjrahPaid;
+    uint256 public totalActiveAkads;
+    uint256 public totalCompletedAkads;
     
-    // Statistics (packed)
-    uint128 public totalETHStaked;
-    uint128 public totalUjrahDibayar;
-    uint256 public totalRewardsHarvested; // NEW: Phase 2
+    // Terms agreement
+    bytes32 public currentTermsHash;
+    mapping(address => bool) public hasAgreedToTerms;
     
     // ============ EVENTS ============
     
-    // Phase 0: Deployment
-    event ContractDeployed(address indexed admin, uint256 timestamp);
+    // Admin events
+    event PlatformActivated(address indexed admin, uint256 timestamp);
+    event PlatformDeactivated(address indexed admin, uint256 timestamp);
+    event ConfigUpdated(
+        uint256 minStake,
+        uint256 maxStake,
+        uint256 ujrahRate,
+        uint256 timestamp
+    );
+    event TermsUpdated(bytes32 indexed newTermsHash, uint256 timestamp);
     
-    // Phase 1: User Staking
-    event IjarahAgreementSigned(
+    // User events
+    event TermsAgreed(
         address indexed user,
         bytes32 indexed termsHash,
         uint256 timestamp
     );
     
     event AkadCreated(
-        uint256 indexed tokenId,
-        address indexed mujir,
-        uint256 ethAmount,
-        uint256 ujrahTetap,
-        uint256 periodeAkhir
+        uint256 indexed akadId,
+        address indexed user,
+        uint256 principal,
+        uint256 ujrahAmount,
+        uint32 lockPeriodDays,
+        uint64 startTime,
+        uint64 endTime,
+        uint256 timestamp
     );
     
-    event AkadApproved(uint256 indexed tokenId, address indexed approver);
-    event StakingStarted(uint256 indexed tokenId);
-    
-    // Phase 2: Operations
-    event RewardsHarvested(uint256 amount, uint256 timestamp);
-    event UjrahDistributed(
-        uint256 indexed tokenId,
+    event UjrahClaimed(
+        uint256 indexed akadId,
         address indexed user,
         uint256 amount,
         uint256 timestamp
     );
     
-    // Phase 3: Withdrawal
-    event WithdrawalRequested(
+    event PrincipalWithdrawn(
+        uint256 indexed akadId,
         address indexed user,
-        uint256 indexed tokenId,
         uint256 amount,
         uint256 timestamp
     );
     
-    event WithdrawalCompleted(
+    event EarlyWithdrawal(
+        uint256 indexed akadId,
         address indexed user,
-        uint256 indexed tokenId,
-        uint256 amount,
+        uint256 principalReturned,
+        uint256 penalty,
         uint256 timestamp
     );
     
-    event AkadNFTBurned(uint256 indexed tokenId, uint256 timestamp);
-    
-    // Config
-    event ConfigUpdated(uint256 minStake, uint256 maxStake, uint256 ujrahBp);
-    event TermsHashUpdated(bytes32 indexed newTermsHash, uint256 timestamp);
-    event ProtocolToggled(bool isActive, uint256 timestamp);
+    event TreasuryDeposit(
+        address indexed admin,
+        uint256 amount,
+        uint256 timestamp
+    );
+
+    event AkadForceCompleted(
+        uint256 indexed akadId,
+        address indexed user,
+        string reason,
+        uint256 timestamp
+    );
     
     // ============ ERRORS ============
     
-    error NotCertified();
-    error ProtocolInactive();
-    error InvalidAmount();
-    error InvalidPeriod();
-    error InvalidStatus();
-    error NotOwner();
-    error PeriodNotEnded();
-    error UjrahNotPaid();
-    error TransferFailed();
+    error PlatformNotActive();
+    error PlatformAlreadyActive();
     error TermsNotAgreed();
     error InvalidTermsHash();
-    error AlreadyPaid();
+    error InvalidAmount();
+    error InvalidLockPeriod();
+    error InvalidAkadId();
+    error NotAkadOwner();
+    error AkadNotActive();
+    error LockPeriodNotEnded();
+    error UjrahAlreadyClaimed();
+    error TransferFailed();
+    error InsufficientBalance();
     
     // ============ CONSTRUCTOR ============
     
-    constructor(
-        address _token,
-        address _registry,
-        address payable _treasury,
-        bytes32 _initialTermsHash
-    ) {
-        require(_token != address(0), "Invalid token");
-        require(_registry != address(0), "Invalid registry");
-        require(_treasury != address(0), "Invalid treasury");
-        
-        token = AmanahStakesToken(_token);
-        registry = SyariahRegistry(_registry);
-        treasury = AmanahStakesTreasury(_treasury);
-        
+    constructor(bytes32 _initialTermsHash) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         
-        // Default config
-        config = ProtocolConfig({
+        // Default configuration
+        config = PlatformConfig({
             minStake: uint128(0.01 ether),
             maxStake: uint128(32 ether),
-            ujrahBasisPoints: 400,      // 4%
-            periodeLockupDays: 30,
-            protokolAktif: false        // Start PAUSED
+            ujrahRateBps: 400,                      // 4% annually
+            minLockDays: 7,                         // 7 days minimum
+            maxLockDays: 365,                       // 1 year maximum
+            earlyWithdrawalPenaltyBps: 1000,        // 10% penalty
+            isActive: false
         });
         
         currentTermsHash = _initialTermsHash;
         
-        // Start in PAUSED state
+        // Start paused for safety
         _pause();
-        
-        emit ContractDeployed(msg.sender, block.timestamp);
-    }
-    
-    // ============================================================
-    // PHASE 0: DEPLOYMENT & CERTIFICATION
-    // ============================================================
-    
-    /**
-     * @notice Admin unpause contract after Syariah certification
-     * @dev Can only unpause if platform is certified
-     */
-    function unpauseContract() external onlyRole(ADMIN_ROLE) {
-        require(registry.isPlatformCertified(), "Platform not certified");
-        _unpause();
-    }
-    
-    /**
-     * @notice Admin pause contract (emergency)
-     */
-    function pauseContract() external onlyRole(ADMIN_ROLE) {
-        _pause();
-    }
-    
-    /**
-     * @notice Update Ijarah terms hash
-     */
-    function setTermsHash(bytes32 _termsHash) external onlyRole(ADMIN_ROLE) {
-        currentTermsHash = _termsHash;
-        emit TermsHashUpdated(_termsHash, block.timestamp);
-    }
-    
-    // ============================================================
-    // PHASE 1: USER STAKING
-    // ============================================================
-    
-    /**
-     * @notice User agrees to Ijarah terms
-     * @dev Must be called before staking
-     */
-    function agreeToIjarahTerms(bytes32 _termsHash) external {
-        if (_termsHash != currentTermsHash) revert InvalidTermsHash();
-        
-        hasAgreedToTerms[msg.sender] = true;
-        
-        emit IjarahAgreementSigned(msg.sender, _termsHash, block.timestamp);
-    }
-    
-    /**
-     * @notice User creates Akad Ijarah & deposits ETH
-     * @dev Mints NFT as proof of akad
-     */
-    function buatAkad(uint256 _periodeHari) 
-        external 
-        payable 
-        nonReentrant 
-        whenNotPaused
-        returns (uint256)
-    {
-        // Phase 1 Validations
-        if (!registry.isPlatformCertified()) revert NotCertified();
-        if (!config.protokolAktif) revert ProtocolInactive();
-        if (!hasAgreedToTerms[msg.sender]) revert TermsNotAgreed();
-        if (!LibUjrah.validateStakeParams(
-            msg.value,
-            config.minStake,
-            config.maxStake,
-            _periodeHari
-        )) revert InvalidAmount();
-        
-        uint256 tokenId = _tokenIdCounter++;
-        uint256 ujrahTetap = LibUjrah.hitungUjrah(
-            msg.value,
-            config.ujrahBasisPoints,
-            _periodeHari
-        );
-        
-        // Create akad (packed storage)
-        akads[tokenId] = AkadIjarah({
-            mujir: msg.sender,
-            ethAmount: uint128(msg.value),
-            ujrahTetap: uint128(ujrahTetap),
-            periodeAwal: uint64(block.timestamp),
-            periodeAkhir: uint64(block.timestamp + (_periodeHari * 1 days)),
-            timestampDeposit: 0,
-            timestampPenarikan: 0,
-            tokenId: uint32(tokenId),
-            status: StatusAkad.DRAFT,
-            ujrahDibayar: false,
-            termsAgreed: true
-        });
-        
-        userAkads[msg.sender].push(tokenId);
-        
-        // Mint SBT (Soul Bound Token) as akad proof
-        token.mint(msg.sender, tokenId);
-        
-        emit AkadCreated(
-            tokenId,
-            msg.sender,
-            msg.value,
-            ujrahTetap,
-            block.timestamp + (_periodeHari * 1 days)
-        );
-        
-        return tokenId;
-    }
-    
-    /**
-     * @notice Dewan Syariah approve akad
-     * @dev After verifying akad compliance
-     */
-    function approveAkad(uint256 _tokenId) 
-        external 
-        onlyRole(DEWAN_SYARIAH_ROLE) 
-    {
-        AkadIjarah storage akad = akads[_tokenId];
-        if (akad.status != StatusAkad.DRAFT) revert InvalidStatus();
-        
-        akad.status = StatusAkad.AKTIF;
-        akad.timestampDeposit = uint64(block.timestamp);
-        
-        emit AkadApproved(_tokenId, msg.sender);
-    }
-    
-    /**
-     * @notice Dewan Syariah approve multiple akads (batch)
-     */
-    function approveAkadBatch(uint256[] calldata _tokenIds) 
-        external 
-        onlyRole(DEWAN_SYARIAH_ROLE) 
-    {
-        for (uint256 i = 0; i < _tokenIds.length; i++) {
-            AkadIjarah storage akad = akads[_tokenIds[i]];
-            if (akad.status == StatusAkad.DRAFT) {
-                akad.status = StatusAkad.AKTIF;
-                akad.timestampDeposit = uint64(block.timestamp);
-                emit AkadApproved(_tokenIds[i], msg.sender);
-            }
-        }
-    }
-    
-    // ============================================================
-    // PHASE 2: OPERATIONAL STAKING
-    // ============================================================
-    
-    /**
-     * @notice Admin starts staking for approved akad
-     * @dev Move funds to staking protocol
-     */
-    function startStaking(uint256 _tokenId) 
-        external 
-        onlyRole(ADMIN_ROLE) 
-    {
-        AkadIjarah storage akad = akads[_tokenId];
-        if (akad.status != StatusAkad.AKTIF) revert InvalidStatus();
-        
-        akad.status = StatusAkad.STAKING;
-        totalETHStaked += akad.ethAmount;
-        
-        emit StakingStarted(_tokenId);
-    }
-    
-    /**
-     * @notice Batch start staking (gas efficient)
-     */
-    function startStakingBatch(uint256[] calldata _tokenIds) 
-        external 
-        onlyRole(ADMIN_ROLE) 
-    {
-        uint128 totalStaked;
-        
-        for (uint256 i = 0; i < _tokenIds.length; i++) {
-            AkadIjarah storage akad = akads[_tokenIds[i]];
-            if (akad.status == StatusAkad.AKTIF) {
-                akad.status = StatusAkad.STAKING;
-                totalStaked += akad.ethAmount;
-                emit StakingStarted(_tokenIds[i]);
-            }
-        }
-        
-        totalETHStaked += totalStaked;
-    }
-    
-    /**
-     * @notice Admin harvests staking rewards from protocol
-     * @dev Phase 2: Collect rewards before distribution
-     */
-    function harvestStakingRewards() 
-        external 
-        onlyRole(ADMIN_ROLE)
-        nonReentrant
-        returns (uint256 harvested)
-    {
-        // Get current contract balance (rewards)
-        harvested = address(this).balance;
-        
-        require(harvested > 0, "No rewards to harvest");
-        
-        totalRewardsHarvested += harvested;
-        
-        emit RewardsHarvested(harvested, block.timestamp);
-        
-        return harvested;
-    }
-    
-    /**
-     * @notice Admin distributes ujrah to single user
-     * @dev Phase 2: Pay ujrah from harvested rewards
-     */
-    function distributeUjrah(uint256 _tokenId) 
-        external 
-        payable
-        onlyRole(ADMIN_ROLE)
-        nonReentrant 
-    {
-        AkadIjarah storage akad = akads[_tokenId];
-        
-        // Validations
-        if (akad.status != StatusAkad.AKTIF && akad.status != StatusAkad.STAKING) {
-            revert InvalidStatus();
-        }
-        if (akad.ujrahDibayar) revert AlreadyPaid();
-        if (msg.value < akad.ujrahTetap) revert InvalidAmount();
-        
-        // Mark as paid
-        akad.ujrahDibayar = true;
-        totalUjrahDibayar += akad.ujrahTetap;
-        
-        // Transfer ujrah to user
-        (bool success, ) = payable(akad.mujir).call{value: akad.ujrahTetap}("");
-        if (!success) revert TransferFailed();
-        
-        // Refund excess
-        if (msg.value > akad.ujrahTetap) {
-            (bool refundSuccess, ) = payable(msg.sender).call{
-                value: msg.value - akad.ujrahTetap
-            }("");
-            if (!refundSuccess) revert TransferFailed();
-        }
-        
-        emit UjrahDistributed(_tokenId, akad.mujir, akad.ujrahTetap, block.timestamp);
-    }
-    
-    /**
-     * @notice Admin distributes ujrah to multiple users (batch)
-     * @dev Gas-efficient batch distribution
-     */
-    function distributeUjrahBatch(uint256[] calldata _tokenIds) 
-        external 
-        payable
-        onlyRole(ADMIN_ROLE)
-        nonReentrant 
-    {
-        uint256 totalRequired = 0;
-        
-        // Calculate total ujrah needed
-        for (uint256 i = 0; i < _tokenIds.length; i++) {
-            AkadIjarah storage akad = akads[_tokenIds[i]];
-            if (!akad.ujrahDibayar && 
-                (akad.status == StatusAkad.AKTIF || akad.status == StatusAkad.STAKING)) {
-                totalRequired += akad.ujrahTetap;
-            }
-        }
-        
-        require(msg.value >= totalRequired, "Insufficient payment");
-        
-        // Distribute to each user
-        for (uint256 i = 0; i < _tokenIds.length; i++) {
-            AkadIjarah storage akad = akads[_tokenIds[i]];
-            
-            if (!akad.ujrahDibayar && 
-                (akad.status == StatusAkad.AKTIF || akad.status == StatusAkad.STAKING)) {
-                
-                akad.ujrahDibayar = true;
-                totalUjrahDibayar += akad.ujrahTetap;
-                
-                (bool success, ) = payable(akad.mujir).call{value: akad.ujrahTetap}("");
-                if (!success) revert TransferFailed();
-                
-                emit UjrahDistributed(_tokenIds[i], akad.mujir, akad.ujrahTetap, block.timestamp);
-            }
-        }
-        
-        // Refund excess
-        if (msg.value > totalRequired) {
-            (bool refundSuccess, ) = payable(msg.sender).call{
-                value: msg.value - totalRequired
-            }("");
-            if (!refundSuccess) revert TransferFailed();
-        }
-    }
-    
-    // ============================================================
-    // PHASE 3: WITHDRAWAL
-    // ============================================================
-    
-    /**
-     * @notice User requests withdrawal
-     * @dev Must wait until period ends and ujrah is paid
-     */
-    function requestWithdrawal(uint256 _tokenId) external nonReentrant {
-        AkadIjarah storage akad = akads[_tokenId];
-        
-        // Validations
-        if (token.ownerOf(_tokenId) != msg.sender) revert NotOwner();
-        if (block.timestamp < akad.periodeAkhir) revert PeriodNotEnded();
-        if (!akad.ujrahDibayar) revert UjrahNotPaid();
-        if (akad.status != StatusAkad.STAKING && akad.status != StatusAkad.AKTIF) {
-            revert InvalidStatus();
-        }
-        
-        akad.status = StatusAkad.MENUNGGU_PENARIKAN;
-        
-        emit WithdrawalRequested(msg.sender, _tokenId, akad.ethAmount, block.timestamp);
-    }
-    
-    /**
-     * @notice Admin processes withdrawal & burns NFT
-     * @dev Phase 3: Return principal and burn akad NFT
-     */
-    function executeWithdrawal(uint256 _tokenId) 
-        external 
-        onlyRole(ADMIN_ROLE)
-        nonReentrant 
-    {
-        AkadIjarah storage akad = akads[_tokenId];
-        if (akad.status != StatusAkad.MENUNGGU_PENARIKAN) revert InvalidStatus();
-        
-        // Update status
-        akad.status = StatusAkad.SELESAI;
-        akad.timestampPenarikan = uint64(block.timestamp);
-        totalETHStaked -= akad.ethAmount;
-        
-        // Return principal to user
-        (bool success, ) = payable(akad.mujir).call{value: akad.ethAmount}("");
-        if (!success) revert TransferFailed();
-        
-        // Burn NFT akad
-        token.burn(_tokenId);
-        
-        emit WithdrawalCompleted(akad.mujir, _tokenId, akad.ethAmount, block.timestamp);
-        emit AkadNFTBurned(_tokenId, block.timestamp);
-    }
-    
-    /**
-     * @notice Batch withdrawal processing (gas efficient)
-     */
-    function executeWithdrawalBatch(uint256[] calldata _tokenIds) 
-        external 
-        onlyRole(ADMIN_ROLE)
-        nonReentrant 
-    {
-        uint128 totalUnstaked;
-        
-        for (uint256 i = 0; i < _tokenIds.length; i++) {
-            AkadIjarah storage akad = akads[_tokenIds[i]];
-            
-            if (akad.status == StatusAkad.MENUNGGU_PENARIKAN) {
-                akad.status = StatusAkad.SELESAI;
-                akad.timestampPenarikan = uint64(block.timestamp);
-                totalUnstaked += akad.ethAmount;
-                
-                // Return principal
-                (bool success, ) = payable(akad.mujir).call{value: akad.ethAmount}("");
-                if (!success) revert TransferFailed();
-                
-                // Burn NFT
-                token.burn(_tokenIds[i]);
-                
-                emit WithdrawalCompleted(akad.mujir, _tokenIds[i], akad.ethAmount, block.timestamp);
-                emit AkadNFTBurned(_tokenIds[i], block.timestamp);
-            }
-        }
-        
-        totalETHStaked -= totalUnstaked;
     }
     
     // ============================================================
@@ -562,173 +182,426 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
     // ============================================================
     
     /**
-     * @notice Update protocol config
+     * @notice Admin activate platform
+     * @dev Unpause and set platform as active
+     */
+    function activatePlatform() external onlyRole(ADMIN_ROLE) {
+        if (config.isActive) revert PlatformAlreadyActive();
+        
+        config.isActive = true;
+        _unpause();
+        
+        emit PlatformActivated(msg.sender, block.timestamp);
+    }
+    
+    /**
+     * @notice Admin deactivate platform (emergency)
+     */
+    function deactivatePlatform() external onlyRole(ADMIN_ROLE) {
+        config.isActive = false;
+        _pause();
+        
+        emit PlatformDeactivated(msg.sender, block.timestamp);
+    }
+    
+    /**
+     * @notice Admin update platform configuration
      */
     function updateConfig(
         uint128 _minStake,
         uint128 _maxStake,
-        uint32 _ujrahBp,
-        uint32 _lockupDays
+        uint32 _ujrahRateBps,
+        uint32 _minLockDays,
+        uint32 _maxLockDays,
+        uint32 _penaltyBps
     ) external onlyRole(ADMIN_ROLE) {
+        require(_minStake < _maxStake, "Invalid stake limits");
+        require(_minLockDays < _maxLockDays, "Invalid lock period limits");
+        require(_ujrahRateBps <= 2000, "Ujrah rate too high"); // Max 20%
+        require(_penaltyBps <= 5000, "Penalty too high"); // Max 50%
+        
         config.minStake = _minStake;
         config.maxStake = _maxStake;
-        config.ujrahBasisPoints = _ujrahBp;
-        config.periodeLockupDays = _lockupDays;
+        config.ujrahRateBps = _ujrahRateBps;
+        config.minLockDays = _minLockDays;
+        config.maxLockDays = _maxLockDays;
+        config.earlyWithdrawalPenaltyBps = _penaltyBps;
         
-        emit ConfigUpdated(_minStake, _maxStake, _ujrahBp);
+        emit ConfigUpdated(_minStake, _maxStake, _ujrahRateBps, block.timestamp);
     }
     
     /**
-     * @notice Toggle protocol active status
+     * @notice Admin update Ijarah terms hash
      */
-    function toggleProtocol() external onlyRole(ADMIN_ROLE) {
-        config.protokolAktif = !config.protokolAktif;
-        emit ProtocolToggled(config.protokolAktif, block.timestamp);
+    function updateTermsHash(bytes32 _newTermsHash) external onlyRole(ADMIN_ROLE) {
+        currentTermsHash = _newTermsHash;
+        emit TermsUpdated(_newTermsHash, block.timestamp);
+    }
+    
+    /**
+     * @notice Admin deposit ETH to treasury for ujrah payments
+     */
+    function depositTreasury() external payable onlyRole(ADMIN_ROLE) {
+        require(msg.value > 0, "Must deposit ETH");
+        emit TreasuryDeposit(msg.sender, msg.value, block.timestamp);
+    }
+    
+    /**
+     * @notice Admin withdraw excess funds (emergency)
+     */
+    function withdrawExcess(uint256 _amount) external onlyRole(ADMIN_ROLE) nonReentrant {
+        uint256 available = getAvailableBalance();
+        require(_amount <= available, "Insufficient available balance");
+        
+        (bool success, ) = payable(msg.sender).call{value: _amount}("");
+        if (!success) revert TransferFailed();
+    }
+    
+    /**
+     * @notice Admin force complete akad (emergency only)
+     */
+    function forceCompleteAkad(uint256 _akadId, string calldata _reason) 
+        external 
+        onlyRole(ADMIN_ROLE) 
+        nonReentrant 
+    {
+        AkadIjarah storage akad = akads[_akadId];
+        if (akad.user == address(0)) revert InvalidAkadId();
+        if (akad.status != AkadStatus.ACTIVE) revert AkadNotActive();
+        
+        // Return principal to user
+        uint256 returnAmount = akad.principal;
+        akad.status = AkadStatus.COMPLETED;
+        totalStaked -= akad.principal;
+        totalActiveAkads--;
+        totalCompletedAkads++;
+        
+        (bool success, ) = payable(akad.user).call{value: returnAmount}("");
+        if (!success) revert TransferFailed();
+        
+         emit AkadForceCompleted(_akadId, akad.user, _reason, block.timestamp);
+    }
+    
+    // ============================================================
+    // USER FUNCTIONS
+    // ============================================================
+    
+    /**
+     * @notice User agree to Ijarah terms
+     * @dev Must be called before creating akad
+     */
+    function agreeToTerms(bytes32 _termsHash) external {
+        if (_termsHash != currentTermsHash) revert InvalidTermsHash();
+        
+        hasAgreedToTerms[msg.sender] = true;
+        
+        emit TermsAgreed(msg.sender, _termsHash, block.timestamp);
+    }
+    
+    /**
+     * @notice User create Akad Ijarah (stake ETH)
+     * @param _lockPeriodDays Lock period in days
+     * @return akadId The created akad ID
+     */
+    function createAkad(uint32 _lockPeriodDays) 
+        external 
+        payable 
+        nonReentrant 
+        whenNotPaused 
+        returns (uint256 akadId) 
+    {
+        // Validations
+        if (!config.isActive) revert PlatformNotActive();
+        if (!hasAgreedToTerms[msg.sender]) revert TermsNotAgreed();
+        if (msg.value < config.minStake || msg.value > config.maxStake) {
+            revert InvalidAmount();
+        }
+        if (_lockPeriodDays < config.minLockDays || _lockPeriodDays > config.maxLockDays) {
+            revert InvalidLockPeriod();
+        }
+        
+        akadId = nextAkadId++;
+        
+        // Calculate ujrah: (principal * rate * days) / (365 * 10000)
+        uint256 ujrahAmount = (msg.value * config.ujrahRateBps * _lockPeriodDays) / (365 * 10000);
+        
+        uint64 startTime = uint64(block.timestamp);
+        uint64 endTime = startTime + uint64(_lockPeriodDays * 1 days);
+        
+        // Create akad
+        akads[akadId] = AkadIjarah({
+            user: msg.sender,
+            principal: uint128(msg.value),
+            ujrahAmount: uint128(ujrahAmount),
+            startTime: startTime,
+            endTime: endTime,
+            lockPeriodDays: _lockPeriodDays,
+            ujrahRate: config.ujrahRateBps,
+            status: AkadStatus.ACTIVE,
+            ujrahClaimed: false
+        });
+        
+        userAkads[msg.sender].push(akadId);
+        
+        totalStaked += uint128(msg.value);
+        totalActiveAkads++;
+        
+        emit AkadCreated(
+            akadId,
+            msg.sender,
+            msg.value,
+            ujrahAmount,
+            _lockPeriodDays,
+            startTime,
+            endTime,
+            block.timestamp
+        );
+        
+        return akadId;
+    }
+    
+    /**
+     * @notice User claim ujrah (can be claimed anytime, calculated pro-rata)
+     * @param _akadId The akad ID to claim from
+     * @return claimedAmount Amount of ujrah claimed
+     */
+    function claimUjrah(uint256 _akadId) 
+        external 
+        nonReentrant 
+        returns (uint256 claimedAmount) 
+    {
+        AkadIjarah storage akad = akads[_akadId];
+        
+        // Validations
+        if (akad.user != msg.sender) revert NotAkadOwner();
+        if (akad.status != AkadStatus.ACTIVE) revert AkadNotActive();
+        if (akad.ujrahClaimed) revert UjrahAlreadyClaimed();
+        
+        // Calculate earned ujrah (pro-rata based on time)
+        uint256 timeElapsed = block.timestamp >= akad.endTime 
+            ? akad.endTime - akad.startTime 
+            : block.timestamp - akad.startTime;
+        
+        uint256 totalDuration = akad.endTime - akad.startTime;
+        claimedAmount = (akad.ujrahAmount * timeElapsed) / totalDuration;
+        
+        require(claimedAmount > 0, "No ujrah to claim");
+        require(address(this).balance >= claimedAmount, "Insufficient treasury balance");
+        
+        // Mark as claimed (simplified - in production, track partial claims)
+        akad.ujrahClaimed = true;
+        totalUjrahPaid += uint128(claimedAmount);
+        
+        // Transfer ujrah to user
+        (bool success, ) = payable(msg.sender).call{value: claimedAmount}("");
+        if (!success) revert TransferFailed();
+        
+        emit UjrahClaimed(_akadId, msg.sender, claimedAmount, block.timestamp);
+        
+        return claimedAmount;
+    }
+    
+    /**
+     * @notice User withdraw principal after lock period ends
+     * @param _akadId The akad ID to withdraw from
+     */
+    function withdrawPrincipal(uint256 _akadId) external nonReentrant {
+        AkadIjarah storage akad = akads[_akadId];
+        
+        // Validations
+        if (akad.user != msg.sender) revert NotAkadOwner();
+        if (akad.status != AkadStatus.ACTIVE) revert AkadNotActive();
+        if (block.timestamp < akad.endTime) revert LockPeriodNotEnded();
+        
+        uint256 returnAmount = akad.principal;
+        
+        // Update state
+        akad.status = AkadStatus.COMPLETED;
+        totalStaked -= akad.principal;
+        totalActiveAkads--;
+        totalCompletedAkads++;
+        
+        // Transfer principal back to user
+        (bool success, ) = payable(msg.sender).call{value: returnAmount}("");
+        if (!success) revert TransferFailed();
+        
+        emit PrincipalWithdrawn(_akadId, msg.sender, returnAmount, block.timestamp);
+    }
+    
+    /**
+     * @notice User request early withdrawal (with penalty)
+     * @param _akadId The akad ID to withdraw from
+     */
+    function earlyWithdrawal(uint256 _akadId) external nonReentrant {
+        AkadIjarah storage akad = akads[_akadId];
+        
+        // Validations
+        if (akad.user != msg.sender) revert NotAkadOwner();
+        if (akad.status != AkadStatus.ACTIVE) revert AkadNotActive();
+        
+        // Calculate penalty and return amount
+        uint256 penalty = (akad.principal * config.earlyWithdrawalPenaltyBps) / 10000;
+        uint256 returnAmount = akad.principal - penalty;
+        
+        // Update state
+        akad.status = AkadStatus.CANCELLED;
+        totalStaked -= akad.principal;
+        totalActiveAkads--;
+        
+        // Transfer reduced principal to user
+        (bool success, ) = payable(msg.sender).call{value: returnAmount}("");
+        if (!success) revert TransferFailed();
+        
+        emit EarlyWithdrawal(
+            _akadId,
+            msg.sender,
+            returnAmount,
+            penalty,
+            block.timestamp
+        );
     }
     
     // ============================================================
     // VIEW FUNCTIONS
     // ============================================================
     
-    /**
-     * @notice Get akad detail
-     */
-    function getAkad(uint256 _tokenId) external view returns (
-        address mujir,
-        uint256 ethAmount,
-        uint256 ujrahTetap,
-        uint256 periodeAwal,
-        uint256 periodeAkhir,
-        StatusAkad status,
-        bool ujrahDibayar,
-        bool termsAgreed
+    function getAkad(uint256 _akadId) external view returns (
+        address user,
+        uint256 principal,
+        uint256 ujrahAmount,
+        uint64 startTime,
+        uint64 endTime,
+        uint32 lockPeriodDays,
+        uint32 ujrahRate,
+        AkadStatus status,
+        bool ujrahClaimed
     ) {
-        AkadIjarah memory akad = akads[_tokenId];
+        AkadIjarah memory akad = akads[_akadId];
         return (
-            akad.mujir,
-            akad.ethAmount,
-            akad.ujrahTetap,
-            akad.periodeAwal,
-            akad.periodeAkhir,
+            akad.user,
+            akad.principal,
+            akad.ujrahAmount,
+            akad.startTime,
+            akad.endTime,
+            akad.lockPeriodDays,
+            akad.ujrahRate,
             akad.status,
-            akad.ujrahDibayar,
-            akad.termsAgreed
+            akad.ujrahClaimed
         );
     }
     
-    /**
-     * @notice Get user's akads
-     */
     function getUserAkads(address _user) external view returns (uint256[] memory) {
         return userAkads[_user];
     }
     
-    /**
-     * @notice Get platform stats
-     */
     function getPlatformStats() external view returns (
-        uint256 totalStaked,
-        uint256 totalUjrah,
+        uint256 totalStakedAmount,
+        uint256 totalUjrahPaidAmount,
+        uint256 activeAkads,
+        uint256 completedAkads,
         uint256 totalAkads,
-        uint256 totalHarvested,
-        bool protokolStatus,
+        bool isActive,
         bool isPaused
     ) {
         return (
-            totalETHStaked,
-            totalUjrahDibayar,
-            _tokenIdCounter,
-            totalRewardsHarvested,
-            config.protokolAktif,
+            totalStaked,
+            totalUjrahPaid,
+            totalActiveAkads,
+            totalCompletedAkads,
+            nextAkadId,
+            config.isActive,
             paused()
         );
     }
     
-    /**
-     * @notice Get config
-     */
     function getConfig() external view returns (
         uint256 minStake,
         uint256 maxStake,
-        uint256 ujrahBp,
-        uint256 lockupDays,
+        uint256 ujrahRateBps,
+        uint256 minLockDays,
+        uint256 maxLockDays,
+        uint256 penaltyBps,
         bool isActive
     ) {
         return (
             config.minStake,
             config.maxStake,
-            config.ujrahBasisPoints,
-            config.periodeLockupDays,
-            config.protokolAktif
+            config.ujrahRateBps,
+            config.minLockDays,
+            config.maxLockDays,
+            config.earlyWithdrawalPenaltyBps,
+            config.isActive
         );
     }
     
-    /**
-     * @notice Calculate ujrah preview
-     */
-    function previewUjrah(uint256 _ethAmount, uint256 _periodeHari) 
+    function calculateUjrah(uint256 _principal, uint32 _lockDays) 
         external 
         view 
         returns (uint256) 
     {
-        return LibUjrah.hitungUjrah(
-            _ethAmount,
-            config.ujrahBasisPoints,
-            _periodeHari
-        );
+        return (_principal * config.ujrahRateBps * _lockDays) / (365 * 10000);
     }
     
-    /**
-     * @notice Check if user has agreed to terms
-     */
-    function hasUserAgreedToTerms(address _user) external view returns (bool) {
+    function calculateEarnedUjrah(uint256 _akadId) 
+        external 
+        view 
+        returns (uint256) 
+    {
+        AkadIjarah memory akad = akads[_akadId];
+        if (akad.status != AkadStatus.ACTIVE) return 0;
+        
+        uint256 timeElapsed = block.timestamp >= akad.endTime 
+            ? akad.endTime - akad.startTime 
+            : block.timestamp - akad.startTime;
+        
+        uint256 totalDuration = akad.endTime - akad.startTime;
+        return (akad.ujrahAmount * timeElapsed) / totalDuration;
+    }
+    
+    function getTimeRemaining(uint256 _akadId) external view returns (uint256) {
+        AkadIjarah memory akad = akads[_akadId];
+        if (block.timestamp >= akad.endTime) return 0;
+        return akad.endTime - block.timestamp;
+    }
+    
+    function hasUserAgreed(address _user) external view returns (bool) {
         return hasAgreedToTerms[_user];
     }
     
-    /**
-     * @notice Get current terms hash
-     */
-    function getCurrentTermsHash() external view returns (bytes32) {
+    function getCurrentTerms() external view returns (bytes32) {
         return currentTermsHash;
     }
     
-    /**
-     * @notice Verify withdrawal eligibility (for Auditor)
-     */
-    function verifyWithdrawalEligibility(uint256 _tokenId) external view returns (
-        bool isEligible,
-        string memory reason
-    ) {
-        AkadIjarah memory akad = akads[_tokenId];
-        
-        if (akad.status != StatusAkad.STAKING && akad.status != StatusAkad.AKTIF) {
-            return (false, "Invalid status");
-        }
-        if (block.timestamp < akad.periodeAkhir) {
-            return (false, "Period not ended");
-        }
-        if (!akad.ujrahDibayar) {
-            return (false, "Ujrah not paid");
-        }
-        
-        return (true, "Eligible");
+    function getTreasuryBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+    
+    function getAvailableBalance() public view returns (uint256) {
+        uint256 balance = address(this).balance;
+        if (balance <= totalStaked) return 0;
+        return balance - totalStaked;
+    }
+    
+    function calculateEarlyWithdrawalPenalty(uint256 _akadId) 
+        external 
+        view 
+        returns (uint256 penalty, uint256 returnAmount) 
+    {
+        AkadIjarah memory akad = akads[_akadId];
+        penalty = (akad.principal * config.earlyWithdrawalPenaltyBps) / 10000;
+        returnAmount = akad.principal - penalty;
+        return (penalty, returnAmount);
     }
     
     // ============================================================
     // RECEIVE & FALLBACK
     // ============================================================
     
-    /**
-     * @notice Receive ETH (for rewards/ujrah payments)
-     */
     receive() external payable {
-        // Accept ETH for ujrah payments or rewards
+        // Accept ETH deposits for treasury
     }
     
-    /**
-     * @notice Fallback function
-     */
     fallback() external payable {
-        revert("Invalid function call");
+        revert("Invalid call");
     }
 }
