@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { Button } from "../../components/ui/button";
 import { User, Mail, Wallet, Shield, Bell, ChevronRight, LogOut, Edit } from "lucide-react";
-import NavigationBar from "../../components/NavigationBar";
 
 const ProfilePage = () => {
     const router = useRouter();
@@ -123,7 +122,6 @@ const ProfilePage = () => {
                 </div>
             </main>
 
-            <NavigationBar />
         </div>
     );
 };

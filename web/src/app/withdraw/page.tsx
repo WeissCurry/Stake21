@@ -7,7 +7,6 @@ import { ArrowLeft, Wallet, AlertCircle, Check, Info, TrendingDown, Clock } from
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { WalletConnectButton } from "../../components/walletConnectButton";
-import NavigationBar from "../../components/NavigationBar";
 
 const WithdrawPage = () => {
     const router = useRouter();
@@ -274,8 +273,6 @@ const WithdrawPage = () => {
                     </div>
                 </div>
             </main>
-
-            <NavigationBar />
         </div>
     );
 };

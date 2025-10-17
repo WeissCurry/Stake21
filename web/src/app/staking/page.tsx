@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "../../components/ui/button";
 import { TrendingUp, Lock, Zap, Shield, Info, ArrowRight } from "lucide-react";
-import NavigationBar from "../../components/NavigationBar";
 
 const StakingPage = () => {
     const router = useRouter();
@@ -40,18 +39,16 @@ const StakingPage = () => {
 
     const quickAmounts = ["0.5", "1.0", "2.5", "5.0"];
 
-    const calculateEarnings = (amount: string | number) => {
-        if (!amount || isNaN(Number(amount))) return "0.00";
-        
-        const plan = stakingPlans.find(p => p.id === selectedPlan);
-        if (!plan) return "0.00"; 
-
+    const calculateEarnings = (amount: string): string => {
+        const parsedAmount = parseFloat(amount);
+        if (!amount || isNaN(parsedAmount)) return "0.00";
+        const plan = stakingPlans.find((p) => p.id === selectedPlan);
+        if (!plan) return "0.00";
         const apy = parseFloat(plan.apy) / 100;
-        const parsedAmount = typeof amount === "string" ? parseFloat(amount) : amount;
-        const earnings = parsedAmount * apy;
-        return earnings.toFixed(2);
-        };
-
+        const days = selectedPlan === "flexible" ? 30 : selectedPlan === "locked-30" ? 30 : 90;
+        const earnings = (parsedAmount * apy * days) / 365;
+        return earnings.toFixed(4);
+    };
 
     return (
         <div className="min-h-screen bg-background pb-24">
@@ -191,8 +188,6 @@ const StakingPage = () => {
                     </div>
                 </div>
             </main>
-
-            <NavigationBar />
         </div>
     );
 };
