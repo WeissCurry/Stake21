@@ -40,14 +40,18 @@ const StakingPage = () => {
 
     const quickAmounts = ["0.5", "1.0", "2.5", "5.0"];
 
-    const calculateEarnings = (amount) => {
-        if (!amount || isNaN(amount)) return "0.00";
+    const calculateEarnings = (amount: string | number) => {
+        if (!amount || isNaN(Number(amount))) return "0.00";
+        
         const plan = stakingPlans.find(p => p.id === selectedPlan);
+        if (!plan) return "0.00"; 
+
         const apy = parseFloat(plan.apy) / 100;
-        const days = selectedPlan === "flexible" ? 30 : selectedPlan === "locked-30" ? 30 : 90;
-        const earnings = (parseFloat(amount) * apy * days) / 365;
-        return earnings.toFixed(4);
-    };
+        const parsedAmount = typeof amount === "string" ? parseFloat(amount) : amount;
+        const earnings = parsedAmount * apy;
+        return earnings.toFixed(2);
+        };
+
 
     return (
         <div className="min-h-screen bg-background pb-24">

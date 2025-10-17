@@ -23,14 +23,14 @@ const WithdrawPage = () => {
     
     // Wagmi hooks
     const { address, isConnected } = useAccount();
-    const { connect } = useConnect({ connector: injected() });
+    const { connect, connectors, isPending } = useConnect();
     const { disconnect } = useDisconnect();
 
     const handleWithdraw = () => {
-        if (!isConnected) {
-            alert("Silakan hubungkan wallet Anda terlebih dahulu!");
+         if (!isConnected) {
+            connect({ connector: connectors[0] });
             return;
-        }
+            }
 
         setIsProcessing(true);
 
@@ -95,11 +95,11 @@ const WithdrawPage = () => {
                                 onClick={() => disconnect()}
                                 className="bg-white/10 border border-white/20 text-white text-sm px-4 py-2 rounded-lg font-semibold hover:bg-white/20 backdrop-blur-sm"
                             >
-                                {address.slice(0, 6)}...{address.slice(-4)}
+                               {address?.slice(0, 6)}...{address?.slice(-4)}
                             </button>
                         ) : (
                             <button
-                                onClick={() => connect()}
+                                onClick={() => connect({ connector: connectors[0] })}
                                 className="bg-white text-primary text-sm px-4 py-2 rounded-lg font-semibold hover:bg-white/90"
                             >
                                 Connect Wallet
