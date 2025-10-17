@@ -1,50 +1,103 @@
-"use client"; 
+"use client";
 
-import { Home, LayoutDashboard, User, ArrowDownRight, Coins } from "lucide-react";
-import Link from "next/link"; 
+import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "../lib/utils"; 
-import { withdraw } from "viem/zksync";
+import { Menu, X } from "lucide-react";
+import { cn } from "../lib/utils";
+import Logo from '../../public/Logo-icon.png';
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
-const NavigationBar = () => {
-  const pathname = usePathname(); 
+const NavigationBar = () => { 
+  const pathname = usePathname();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navItems = [
-    { href: "/", icon: Home, label: "Home" },
-    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/profile", icon: User, label: "Profile" },
-    { href: "/withdraw", icon: ArrowDownRight, label: "Withdraw" },
-    { href: "/staking", icon: Coins, label: "Staking" },
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/profile", label: "Profile" },
+    { href: "/staking", label: "Staking" },
+    { href: "/withdraw", label: "Withdraw" },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-large z-50">
-      <div className="max-w-md mx-auto px-6 py-3">
-        <div className="flex items-center justify-around">
-          {navItems.map((item) => {
-            // Langkah 3: Buat logika untuk menentukan link aktif
-            const isActive = pathname === item.href;
+    <>
+      <header className="sticky top-0 z-50 bg-black/70 backdrop-blur-sm border-b border-gray-800">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2">
+            <Image src={Logo} alt="App Logo" className="w-9" />
+            <span className="text-xl font-bold text-white">Stake21</span>
+          </Link>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href} // <-- Langkah 1: Gunakan 'href'
-                className={cn(
-                  "flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all duration-200",
-                  // Gunakan variabel 'isActive' yang sudah kita buat
-                  isActive
-                    ? "text-primary bg-secondary/50"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="text-xs font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
+ 
+          <nav className="hidden md:flex items-center gap-8 text-gray-300">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "transition-colors hover:text-white",
+                    isActive ? "text-teal-400 font-semibold" : ""
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Tombol Aksi Desktop */}
+          <div className="hidden md:flex items-center gap-4">
+
+            {/* INI TOMBOL CONNECT MOCKUP. nanti benerin pake <ConnectButton /> */}
+            <div>Connect Button</div>
+            {/* <ConnectButton /> */}
+          </div>
+
+          {/* Tombol Menu Mobile */}
+          <div className="md:hidden">
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="text-white focus:outline-none"
+            >
+              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
-      </div>
-    </nav>
+      </header>
+
+      {/* Menu Dropdown Mobile */}
+      {isMenuOpen && (
+        <div className="md:hidden fixed top-[77px] left-0 right-0 bg-black/90 backdrop-blur-md z-40 p-6 border-b border-gray-800">
+          <nav className="flex flex-col items-center gap-6">
+            {navItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMenuOpen(false)} // Tutup menu setelah diklik
+                    className={cn(
+                      "text-lg text-gray-300 hover:text-white transition-colors w-full text-center py-2 rounded-md",
+                      isActive ? "text-teal-400 font-bold bg-gray-800" : ""
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                )
+            })}
+            
+            <div className="mt-4 w-full flex justify-center">
+            {/* INI TOMBOL CONNECT MOCKUP. nanti benerin pake <ConnectButton /> */}
+            <div>Connect Button</div>
+            {/* <ConnectButton /> */}
+            </div>
+          </nav>
+        </div>
+      )}
+    </>
   );
 };
 

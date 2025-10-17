@@ -1,6 +1,10 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Providers } from "./providers";
 import "./globals.css";
+// Hapus import NavigationBar, karena sudah dihandle di ClientLayout
+// import NavigationBar from "../components/NavigationBar"; 
+import ClientLayout from "../components/ClientLayout"; // <-- Import komponen baru
 
 export const metadata: Metadata = {
   title: "My Next.js App",
@@ -15,7 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          {/* Bungkus children dengan ClientLayout */}
+          <ClientLayout>{children}</ClientLayout>
+        </Providers>
       </body>
     </html>
   );

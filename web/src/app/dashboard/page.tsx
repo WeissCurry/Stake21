@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "../../components/ui/button";
 import { ArrowUpRight, ArrowDownLeft, TrendingUp, Wallet } from "lucide-react";
 import MetricCard from "../../components/MetricCard";
-import NavigationBar from "../../components/NavigationBar";
 
 const DashboardPage = () => {
     const router = useRouter();
@@ -122,8 +121,6 @@ const DashboardPage = () => {
                     </div>
                 </div>
             </main>
-
-            <NavigationBar />
         </div>
     );
 };
