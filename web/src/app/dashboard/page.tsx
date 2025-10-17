@@ -24,7 +24,7 @@ const DashboardPage = () => {
     return (
         <div className="min-h-screen bg-background pb-24">
             {/* Header */}
-            <header className="bg-gradient-hero text-primary-foreground shadow-medium text-white">
+            <header className="bg-gradient-hero shadow-medium text-white">
                 <div className="max-w-md mx-auto px-6 py-8">
                     <h1 className="text-2xl font-bold mb-1">Dashboard Anda</h1>
                     <p className="text-sm opacity-90">Pantau investasi dan pendapatan Anda</p>
