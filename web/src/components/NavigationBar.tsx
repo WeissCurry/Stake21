@@ -7,7 +7,8 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { cn } from "../lib/utils";
 import Logo from '../../public/Logo-icon.png';
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { WalletConnectButton } from "@/components/walletConnectButton";
+
 
 const NavigationBar = () => { 
   const pathname = usePathname();
@@ -51,9 +52,7 @@ const NavigationBar = () => {
           {/* Tombol Aksi Desktop */}
           <div className="hidden md:flex items-center gap-4">
 
-            {/* INI TOMBOL CONNECT MOCKUP. nanti benerin pake <ConnectButton /> */}
-            <div>Connect Button</div>
-            {/* <ConnectButton /> */}
+            <WalletConnectButton/>
           </div>
 
           {/* Tombol Menu Mobile */}
@@ -90,9 +89,7 @@ const NavigationBar = () => {
             })}
             
             <div className="mt-4 w-full flex justify-center">
-            {/* INI TOMBOL CONNECT MOCKUP. nanti benerin pake <ConnectButton /> */}
-            <div>Connect Button</div>
-            {/* <ConnectButton /> */}
+            <WalletConnectButton/>
             </div>
           </nav>
         </div>

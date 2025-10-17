@@ -2,16 +2,54 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "../../components/ui/button";
-import { User, Mail, Wallet, Shield, Bell, ChevronRight, LogOut, Edit } from "lucide-react";
+import {
+    User,
+    Mail,
+    Wallet,
+    Shield,
+    Bell,
+    ChevronRight,
+    LogOut,
+    Edit,
+} from "lucide-react";
+import NavigationBar from "../../components/NavigationBar";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { injected } from "wagmi/connectors";
+import { WalletConnectButton } from "../../components/walletConnectButton";
+
 
 const ProfilePage = () => {
     const router = useRouter();
 
+    const { address, isConnected } = useAccount();
+    const { connect, isPending } = useConnect({ connector: injected() });
+    const { disconnect } = useDisconnect();
+
     const menuItems = [
-        { icon: <User className="w-5 h-5" />, title: "Informasi Akun", subtitle: "Kelola data pribadi Anda", action: () => {} },
-        { icon: <Wallet className="w-5 h-5" />, title: "Dompet & Pembayaran", subtitle: "Atur metode pembayaran", action: () => {} },
-        { icon: <Shield className="w-5 h-5" />, title: "Keamanan", subtitle: "Password dan autentikasi", action: () => {} },
-        { icon: <Bell className="w-5 h-5" />, title: "Notifikasi", subtitle: "Pengaturan pemberitahuan", action: () => {} },
+        {
+            icon: <User className="w-5 h-5" />,
+            title: "Informasi Akun",
+            subtitle: "Kelola data pribadi Anda",
+            action: () => {},
+        },
+        {
+            icon: <Wallet className="w-5 h-5" />,
+            title: "Dompet & Pembayaran",
+            subtitle: "Atur metode pembayaran",
+            action: () => {},
+        },
+        {
+            icon: <Shield className="w-5 h-5" />,
+            title: "Keamanan",
+            subtitle: "Password dan autentikasi",
+            action: () => {},
+        },
+        {
+            icon: <Bell className="w-5 h-5" />,
+            title: "Notifikasi",
+            subtitle: "Pengaturan pemberitahuan",
+            action: () => {},
+        },
     ];
 
     return (
@@ -20,7 +58,9 @@ const ProfilePage = () => {
             <header className="bg-gradient-hero text-primary-foreground shadow-medium">
                 <div className="max-w-md mx-auto px-6 py-8 text-white">
                     <h1 className="text-2xl font-bold mb-1">Profil Saya</h1>
-                    <p className="text-sm opacity-90">Kelola akun dan preferensi Anda</p>
+                    <p className="text-sm opacity-90">
+                        Kelola akun dan preferensi Anda
+                    </p>
                 </div>
             </header>
 
@@ -32,26 +72,42 @@ const ProfilePage = () => {
                             <User className="w-10 h-10 text-primary" />
                         </div>
                         <div className="flex-1">
-                            <h2 className="text-xl font-bold text-foreground mb-1">Ahmad Fauzi</h2>
+                            <h2 className="text-xl font-bold text-foreground mb-1">
+                                {isConnected
+                                    ? `${address?.slice(0, 6)}...${address?.slice(-4)}`
+                                    : "Belum Terhubung"}
+                            </h2>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Mail className="w-4 h-4" />
-                                <span>ahmad.fauzi@email.com</span>
+                                {isConnected ? (
+                                    <>
+                                        <Wallet className="w-4 h-4" />
+                                        <span>Wallet Terhubung</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Mail className="w-4 h-4" />
+                                        <span>ahmad.fauzi@email.com</span>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
-                    <Button className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-medium">
-                        <Edit className="w-4 h-4 mr-2" /> Edit Profil
-                    </Button>
+
+                    <WalletConnectButton/>
                 </div>
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-card rounded-xl p-4 border border-border shadow-medium">
-                        <p className="text-sm text-muted-foreground mb-1">Total Investasi</p>
+                        <p className="text-sm text-muted-foreground mb-1">
+                            Total Investasi
+                        </p>
                         <p className="text-2xl font-bold text-foreground">5.25 ETH</p>
                     </div>
                     <div className="bg-card rounded-xl p-4 border border-border shadow-medium">
-                        <p className="text-sm text-muted-foreground mb-1">Ujrah Bulan Ini</p>
+                        <p className="text-sm text-muted-foreground mb-1">
+                            Ujrah Bulan Ini
+                        </p>
                         <p className="text-2xl font-bold text-success">0.012 ETH</p>
                     </div>
                 </div>
@@ -63,7 +119,9 @@ const ProfilePage = () => {
                             key={i}
                             onClick={item.action}
                             className={`flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
-                                i !== menuItems.length - 1 ? "border-b border-border" : ""
+                                i !== menuItems.length - 1
+                                    ? "border-b border-border"
+                                    : ""
                             }`}
                         >
                             <div className="flex items-center gap-4">
@@ -71,8 +129,12 @@ const ProfilePage = () => {
                                     {item.icon}
                                 </div>
                                 <div>
-                                    <p className="font-semibold text-sm text-foreground">{item.title}</p>
-                                    <p className="text-xs text-muted-foreground">{item.subtitle}</p>
+                                    <p className="font-semibold text-sm text-foreground">
+                                        {item.title}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {item.subtitle}
+                                    </p>
                                 </div>
                             </div>
                             <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -89,8 +151,12 @@ const ProfilePage = () => {
                                     <span className="text-lg">🇮🇩</span>
                                 </div>
                                 <div>
-                                    <p className="font-semibold text-sm text-foreground">Bahasa</p>
-                                    <p className="text-xs text-muted-foreground">Indonesia</p>
+                                    <p className="font-semibold text-sm text-foreground">
+                                        Bahasa
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Indonesia
+                                    </p>
                                 </div>
                             </div>
                             <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -103,7 +169,9 @@ const ProfilePage = () => {
                                     <span className="text-lg">💰</span>
                                 </div>
                                 <div>
-                                    <p className="font-semibold text-sm text-foreground">Mata Uang</p>
+                                    <p className="font-semibold text-sm text-foreground">
+                                        Mata Uang
+                                    </p>
                                     <p className="text-xs text-muted-foreground">USD</p>
                                 </div>
                             </div>
@@ -113,15 +181,14 @@ const ProfilePage = () => {
                 </div>
 
                 {/* Logout Button */}
-                <Button className="w-full h-12 border-2 border-destructive text-destructive hover:bg-destructive hover:text-white rounded-xl transition-colors">
+                {/*<Button className="w-full h-12 border-2 border-destructive text-destructive hover:bg-destructive hover:text-white rounded-xl transition-colors">
                     <LogOut className="w-4 h-4 mr-2" /> Keluar
                 </Button>
-
+*/}
                 <div className="text-center text-xs text-muted-foreground pb-4">
-                    Version 1.0.0 • © 2025  Stake21
+                    Version 1.0.0 • © 2025 Stake21
                 </div>
             </main>
-
         </div>
     );
 };
