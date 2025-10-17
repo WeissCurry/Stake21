@@ -4,22 +4,16 @@ import {
     ShieldCheck,
     TrendingUp,
     Code,
-    Globe,
-    Database,
-    Users,
-    Twitter,
-    Linkedin,
-    Github,
-    ChevronRight,
-    Menu,
-    X,
-    Plus,
 } from 'lucide-react';
 import type { ComponentType, SVGProps, ReactNode } from 'react';
 
-import Logo from '../../public/Logo-icon.png';
+import FaqSection from '@/components/HomePage/FaqSection';
+import Header from '@/components/HomePage/Header';
+import Footer from '@/components/HomePage/Footer';
+import ThreeDPlaceholder from '@/components/HomePage/ThreeDPlaceholder';
+import Model from "../../public/StakingModel.png";
+import SwiperPartner from '@/components/HomePage/SwiperPartner';
 
-// Komponen untuk kartu fitur
 const FeatureCard = ({
     icon: Icon,
     title,
@@ -29,7 +23,7 @@ const FeatureCard = ({
     title: string;
     children?: ReactNode;
 }) => (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6 hover:border-teal-400/50 transition-colors duration-300">
+    <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6 hover:border-teal-400/50 hover:scale-105 transition-transform duration-300">
         <div className="flex items-center justify-center h-12 w-12 rounded-md bg-teal-400/10 text-teal-400 mb-4">
             <Icon className="h-6 w-6" />
         </div>
@@ -38,7 +32,6 @@ const FeatureCard = ({
     </div>
 );
 
-// Komponen untuk kartu testimoni
 type TestimonialCardProps = {
     quote: string;
     name: string;
@@ -60,49 +53,10 @@ const TestimonialCard = ({ quote, name, title, avatarUrl }: TestimonialCardProps
     </div>
 );
 
-// Komponen untuk item FAQ (Accordion style)
-type FaqItemProps = {
-    question: string;
-    answer?: ReactNode;
-};
-const FaqItem = ({ question, answer }: FaqItemProps) => (
-    <div className="border-b border-gray-800 py-6">
-        <div className="flex justify-between items-center cursor-pointer">
-            <h4 className="text-lg font-medium text-white">{question}</h4>
-            <Plus className="h-5 w-5 text-gray-400" />
-        </div>
-        {/* Logic for accordion expansion would be added here */}
-    </div>
-);
-
 const LandingPage: NextPage = () => {
     return (
         <div className="bg-black text-gray-300 font-sans antialiased">
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-black/70 backdrop-blur-sm">
-                <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        {/* <ShieldCheck className="h-7 w-7 text-teal-400" /> */}
-                        <Image src={Logo} alt="Stake21 Logo" className="w-9" />
-                        <span className="text-xl font-bold text-white">Stake21</span>
-                    </div>
-                    <nav className="hidden md:flex items-center gap-8">
-                        <a href="#" className="hover:text-white transition-colors">How It Works</a>
-                        <a href="#" className="hover:text-white transition-colors">Sharia Compliance</a>
-                        <a href="#" className="hover:text-white transition-colors">Farcaster</a>
-                        <a href="#" className="hover:text-white transition-colors">FAQ</a>
-                    </nav>
-                    <div className="hidden md:flex items-center gap-4">
-                        <a href="/dapps" className="bg-teal-400 text-black font-semibold py-2 px-4 rounded-lg hover:bg-teal-500 transition-colors">
-                            Launch App
-                        </a>
-                    </div>
-                    <div className="md:hidden">
-                        <Menu className="h-6 w-6 text-white" />
-                    </div>
-                </div>
-            </header>
-
+            <Header />
             <main>
                 {/* Hero Section */}
                 <section className="container mx-auto px-6 py-24 md:py-32">
@@ -115,21 +69,20 @@ const LandingPage: NextPage = () => {
                                 Stake ETH with Confidence. Halal, Transparent, Secure.
                             </h1>
                             <p className="text-lg text-gray-400 mb-8 max-w-lg mx-auto md:mx-0">
-                                Stake21s introduces a revolutionary Sharia-compliant model, allowing you to earn fixed returns on your ETH through a transparent rental agreement (Akad Ijarah), free from uncertainty and interest.
+                                Stake21 introduces a revolutionary Sharia-compliant model, allowing you to earn fixed returns on your ETH through a transparent rental agreement (Akad Ijarah), free from uncertainty and interest.
                             </p>
                             <div className="flex justify-center md:justify-start gap-4">
-                                <button className="bg-teal-400 text-black font-semibold py-3 px-6 rounded-lg hover:bg-teal-500 transition-colors">
+                                <a href="/staking" className="bg-teal-400 text-black font-semibold py-3 px-6 rounded-lg hover:bg-teal-500 transition-colors inline-block text-center">
                                     Start Staking
-                                </button>
-                                <button className="border border-gray-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-900 transition-colors">
+                                </a>
+                                <a href="#ijarah-model" className="border border-gray-700 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-900 transition-colors">
                                     Learn About Ijarah
-                                </button>
+                                </a>
                             </div>
                         </div>
                         <div>
-                            {/* Placeholder for 3D graphic */}
-                            <div className="w-full h-80 md:h-96 bg-gray-900 rounded-lg flex items-center justify-center">
-                                <span className="text-gray-600"></span>
+                            <div className="w-full h-80 md:h-96  rounded-lg flex items-center justify-center">
+                                <ThreeDPlaceholder />
                             </div>
                         </div>
                     </div>
@@ -155,6 +108,10 @@ const LandingPage: NextPage = () => {
                     </div>
                 </section>
 
+                {/* <section className='py-12'>
+                    <SwiperPartner />
+                </section> */}
+
                 {/* How It Works Section */}
                 <section className="container mx-auto px-6 py-24">
                     <div className="text-center max-w-3xl mx-auto">
@@ -178,7 +135,7 @@ const LandingPage: NextPage = () => {
                 </section>
 
                 {/* Ijarah Model Section */}
-                <section className="container mx-auto px-6 py-24">
+                <section className="ijarah-model container mx-auto px-6 py-24">
                     <div className="grid md:grid-cols-2 gap-16 items-center">
                         <div className="order-2 md:order-1">
                             <span className="text-teal-400 font-semibold mb-2 block">INNOVATION</span>
@@ -211,9 +168,8 @@ const LandingPage: NextPage = () => {
                             </div>
                         </div>
                         <div className="order-1 md:order-2">
-                            {/* Placeholder for flowchart graphic */}
-                            <div className="w-full h-80 md:h-96 bg-gray-900 rounded-lg flex items-center justify-center">
-                                <span className="text-gray-600"></span>
+                            <div className="w-full h-80 md:h-96 bg-[#000d24] rounded-lg relative">
+                                <Image src={Model} alt="Ijarah Staking Model" className="object-contain" fill />
                             </div>
                         </div>
                     </div>
@@ -250,17 +206,8 @@ const LandingPage: NextPage = () => {
                 </section>
 
                 {/* FAQ Section */}
-                <section className="container mx-auto px-6 py-24">
-                    <div className="text-center max-w-3xl mx-auto">
-                        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Common Questions Answered</h2>
-                    </div>
-                    <div className="max-w-3xl mx-auto mt-12">
-                        <FaqItem question="Is this really Halal? How is it different from normal staking?" />
-                        <FaqItem question="What is Akad Ijarah?" />
-                        <FaqItem question="How is my return fixed if staking rewards fluctuate?" />
-                        <FaqItem question="What are the risks involved?" />
-                        <FaqItem question="How do I start with Farcaster?" />
-                    </div>
+                <section className="container mx-auto px-6">
+                    <FaqSection />
                 </section>
 
                 {/* CTA Section */}
@@ -271,58 +218,14 @@ const LandingPage: NextPage = () => {
                         <p className="text-gray-400 mb-8">
                             Start your journey into a faith-compliant financial future. Stake your ETH with principles and peace of mind, right from your Farcaster feed.
                         </p>
-                        <button className="bg-teal-400 text-black font-semibold py-3 px-8 rounded-lg hover:bg-teal-500 transition-colors text-lg">
+                        <a href="/staking" className="bg-teal-400 text-black font-semibold py-3 px-8 rounded-lg hover:bg-teal-500 transition-colors text-lg">
                             Start Staking Today
-                        </button>
+                        </a>
                     </div>
                 </section>
             </main>
 
-            {/* Footer */}
-            <footer className="bg-gray-900/50 border-t border-gray-800">
-                <div className="container mx-auto px-6 py-16">
-                    <div className="grid md:grid-cols-5 gap-12">
-                        <div className="col-span-2 md:col-span-1">
-                            <div className="flex items-center gap-2 mb-4">
-                                <ShieldCheck className="h-7 w-7 text-teal-400" />
-                                <span className="text-xl font-bold text-white">Stake21s</span>
-                            </div>
-                        </div>
-                        <div className="md:col-start-3">
-                            <h4 className="font-semibold text-white mb-4">Product</h4>
-                            <ul className="space-y-3 text-gray-400">
-                                <li><a href="#" className="hover:text-white">How It Works</a></li>
-                                <li><a href="#" className="hover:text-white">Dashboard</a></li>
-                                <li><a href="#" className="hover:text-white">Security</a></li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-white mb-4">Company</h4>
-                            <ul className="space-y-3 text-gray-400">
-                                <li><a href="#" className="hover:text-white">About</a></li>
-                                <li><a href="#" className="hover:text-white">Blog</a></li>
-                                <li><a href="#" className="hover:text-white">Contact</a></li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-white mb-4">Resources</h4>
-                            <ul className="space-y-3 text-gray-400">
-                                <li><a href="#" className="hover:text-white">Documentation</a></li>
-                                <li><a href="#" className="hover:text-white">Sharia Certificate</a></li>
-                                <li><a href="#" className="hover:text-white">Audit Reports</a></li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div className="mt-12 pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center">
-                        <p className="text-gray-500 text-sm">&copy; 2025 Stake21s. All rights reserved.</p>
-                        <div className="flex gap-6 mt-4 md:mt-0">
-                            <a href="#" className="text-gray-500 hover:text-white"><Twitter /></a>
-                            <a href="#" className="text-gray-500 hover:text-white"><Linkedin /></a>
-                            <a href="#" className="text-gray-500 hover:text-white"><Github /></a>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            <Footer />
         </div>
     );
 };
