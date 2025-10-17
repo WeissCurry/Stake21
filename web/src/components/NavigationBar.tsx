@@ -1,17 +1,20 @@
 "use client"; 
 
-import { Home, LayoutDashboard, User } from "lucide-react";
+import { Home, LayoutDashboard, User, ArrowDownRight, Coins } from "lucide-react";
 import Link from "next/link"; 
 import { usePathname } from "next/navigation";
 import { cn } from "../lib/utils"; 
+import { withdraw } from "viem/zksync";
 
 const NavigationBar = () => {
   const pathname = usePathname(); 
 
   const navItems = [
-    { href: "/", icon: Home, label: "Beranda" },
+    { href: "/", icon: Home, label: "Home" },
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/profile", icon: User, label: "Profil" },
+    { href: "/profile", icon: User, label: "Profile" },
+    { href: "/withdraw", icon: ArrowDownRight, label: "Withdraw" },
+    { href: "/staking", icon: Coins, label: "Staking" },
   ];
 
   return (

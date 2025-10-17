@@ -1,0 +1,6 @@
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - bufferutil
+  - keccak
+  - sharp
+  - utf-8-validate
