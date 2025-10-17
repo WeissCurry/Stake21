@@ -1,21 +1,32 @@
 "use client";
 
-// import { Toaster } from "@/components/ui/toaster";
-// import { Toaster as Sonner } from "@/components/ui/sonner";
-// import { TooltipProvider } from "@/components/ui/tooltip";
+import { WagmiProvider, createConfig, http } from "wagmi";
+import { mainnet, sepolia } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { injected, metaMask, coinbaseWallet } from "wagmi/connectors";
+
+const config = createConfig({
+  chains: [mainnet, sepolia],
+  connectors: [
+    metaMask(),
+    coinbaseWallet({ appName: "DEEN" }),
+    injected(),
+  ],
+  transports: {
+    [mainnet.id]: http("https://mainnet.base.org"),
+    [sepolia.id]: http("https://sepolia.base.org"),
+  },
+  ssr: true,
+});
+
+const queryClient = new QueryClient();
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
-
   return (
-    <QueryClientProvider client={queryClient}>
-      {/* <TooltipProvider> */}
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
         {children}
-        {/* <Toaster />
-        <Sonner />
-      </TooltipProvider> */}
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }

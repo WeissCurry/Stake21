@@ -1,0 +1,6 @@
+{
+	"dependencies": {
+		"@shadcn/ui": "^0.0.4",
+		"radix-ui": "^1.4.3"
+	}
+}
