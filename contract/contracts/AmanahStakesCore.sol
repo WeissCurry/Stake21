@@ -5,57 +5,72 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
+// Interface untuk NFT Contract
+interface IAmanahStakesNFT {
+    function mintCertificate(
+        uint256 _akadId,
+        address _user,
+        uint256 _stakedAmount,
+        uint32 _lockPeriodDays,
+        uint256 _expectedReward,
+        uint64 _startTime,
+        uint64 _endTime,
+        uint32 _ujrahRate
+    ) external returns (uint256 tokenId);
+    
+    function burnCertificate(uint256 _tokenId) external;
+    
+    function getTokenIdByAkadId(uint256 _akadId) external view returns (uint256);
+}
+
 /**
- * @title AmanahStakesCore MVP
- * @notice Core logic untuk platform staking syariah - MVP VERSION
- * @dev Focus: ADMIN dan USER roles only (Dewan Syariah = placeholder)
+ * @title AmanahStakesCore MVP with NFT Integration
+ * @notice Core logic untuk platform staking syariah dengan NFT certificates
  */
 contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
+    bytes32 public termsHash; 
     
     // ============ ROLES ============
-    
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    
-    // Placeholder role (tidak bisa write/read, hanya nama)
     bytes32 public constant DEWAN_SYARIAH_ROLE = keccak256("DEWAN_SYARIAH_ROLE");
     
     // ============ ENUMS ============
-    
     enum AkadStatus {
-        ACTIVE,      // Sedang staking
-        COMPLETED,   // Selesai & withdrawn
-        CANCELLED    // Dibatalkan (early withdrawal)
+        ACTIVE,
+        COMPLETED,
+        CANCELLED
     }
     
     // ============ STRUCTS ============
-    
-    /// @notice Akad Ijarah (Simplified & Optimized)
     struct AkadIjarah {
-        address user;              // User address
-        uint128 principal;         // ETH amount staked
-        uint128 ujrahAmount;       // Total ujrah earned
-        uint64 startTime;          // Start timestamp
-        uint64 endTime;            // End timestamp (lockup)
-        uint32 lockPeriodDays;     // Lock period in days
-        uint32 ujrahRate;          // Ujrah rate in basis points (e.g., 400 = 4%)
-        AkadStatus status;         // Current status
-        bool ujrahClaimed;         // Whether ujrah has been claimed
+        address user;
+        uint128 principal;
+        uint128 ujrahAmount;
+        uint64 startTime;
+        uint64 endTime;
+        uint32 lockPeriodDays;
+        uint32 ujrahRate;
+        AkadStatus status;
+        bool ujrahClaimed;
+        uint256 nftTokenId;          // ← NEW: NFT token ID
     }
     
-    /// @notice Platform Configuration
     struct PlatformConfig {
-        uint128 minStake;          // Minimum stake amount
-        uint128 maxStake;          // Maximum stake amount
-        uint32 ujrahRateBps;       // Default ujrah rate (basis points)
-        uint32 minLockDays;        // Minimum lock period
-        uint32 maxLockDays;        // Maximum lock period
-        uint32 earlyWithdrawalPenaltyBps; // Penalty for early withdrawal (basis points)
-        bool isActive;             // Platform active status
+        uint128 minStake;
+        uint128 maxStake;
+        uint32 ujrahRateBps;
+        uint32 minLockDays;
+        uint32 maxLockDays;
+        uint32 earlyWithdrawalPenaltyBps;
+        bool isActive;
     }
     
     // ============ STATE VARIABLES ============
-    
     PlatformConfig public config;
+    
+    // ← NEW: NFT Contract Reference
+    IAmanahStakesNFT public nftContract;
+    bool public nftEnabled;
     
     // Akad tracking
     uint256 public nextAkadId;
@@ -84,6 +99,8 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         uint256 timestamp
     );
     event TermsUpdated(bytes32 indexed newTermsHash, uint256 timestamp);
+    event NFTContractSet(address indexed nftContract, uint256 timestamp);
+    event NFTFeatureToggled(bool enabled, uint256 timestamp);
     
     // User events
     event TermsAgreed(
@@ -100,6 +117,7 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         uint32 lockPeriodDays,
         uint64 startTime,
         uint64 endTime,
+        uint256 nftTokenId,         // ← NEW
         uint256 timestamp
     );
     
@@ -139,7 +157,6 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
     );
     
     // ============ ERRORS ============
-    
     error PlatformNotActive();
     error PlatformAlreadyActive();
     error TermsNotAgreed();
@@ -153,60 +170,67 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
     error UjrahAlreadyClaimed();
     error TransferFailed();
     error InsufficientBalance();
+    error NFTContractNotSet();
     
     // ============ CONSTRUCTOR ============
-    
     constructor(bytes32 _initialTermsHash) {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ADMIN_ROLE, msg.sender);
-        
-        // Default configuration
-        config = PlatformConfig({
-            minStake: uint128(0.01 ether),
-            maxStake: uint128(32 ether),
-            ujrahRateBps: 400,                      // 4% annually
-            minLockDays: 7,                         // 7 days minimum
-            maxLockDays: 365,                       // 1 year maximum
-            earlyWithdrawalPenaltyBps: 1000,        // 10% penalty
-            isActive: false
-        });
-        
-        currentTermsHash = _initialTermsHash;
-        
-        // Start paused for safety
-        _pause();
-    }
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    _grantRole(ADMIN_ROLE, msg.sender);
+
+    config = PlatformConfig({
+        minStake: uint128(0.01 ether),
+        maxStake: uint128(32 ether),
+        ujrahRateBps: 400,
+        minLockDays: 7,
+        maxLockDays: 365,
+        earlyWithdrawalPenaltyBps: 1000,
+        isActive: true // langsung aktif
+    });
+
+    termsHash = _initialTermsHash; 
+}
+
     
     // ============================================================
     // ADMIN FUNCTIONS
     // ============================================================
     
     /**
-     * @notice Admin activate platform
-     * @dev Unpause and set platform as active
+     * @notice Set NFT contract address
      */
+    function setNFTContract(address _nftContractAddress) 
+        external 
+        onlyRole(ADMIN_ROLE) 
+    {
+        require(_nftContractAddress != address(0), "Invalid address");
+        nftContract = IAmanahStakesNFT(_nftContractAddress);
+        emit NFTContractSet(_nftContractAddress, block.timestamp);
+    }
+    
+    /**
+     * @notice Toggle NFT feature on/off
+     */
+    function toggleNFTFeature(bool _enabled) external onlyRole(ADMIN_ROLE) {
+        if (_enabled && address(nftContract) == address(0)) {
+            revert NFTContractNotSet();
+        }
+        nftEnabled = _enabled;
+        emit NFTFeatureToggled(_enabled, block.timestamp);
+    }
+    
     function activatePlatform() external onlyRole(ADMIN_ROLE) {
         if (config.isActive) revert PlatformAlreadyActive();
-        
         config.isActive = true;
         _unpause();
-        
         emit PlatformActivated(msg.sender, block.timestamp);
     }
     
-    /**
-     * @notice Admin deactivate platform (emergency)
-     */
     function deactivatePlatform() external onlyRole(ADMIN_ROLE) {
         config.isActive = false;
         _pause();
-        
         emit PlatformDeactivated(msg.sender, block.timestamp);
     }
     
-    /**
-     * @notice Admin update platform configuration
-     */
     function updateConfig(
         uint128 _minStake,
         uint128 _maxStake,
@@ -217,8 +241,8 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
     ) external onlyRole(ADMIN_ROLE) {
         require(_minStake < _maxStake, "Invalid stake limits");
         require(_minLockDays < _maxLockDays, "Invalid lock period limits");
-        require(_ujrahRateBps <= 2000, "Ujrah rate too high"); // Max 20%
-        require(_penaltyBps <= 5000, "Penalty too high"); // Max 50%
+        require(_ujrahRateBps <= 2000, "Ujrah rate too high");
+        require(_penaltyBps <= 5000, "Penalty too high");
         
         config.minStake = _minStake;
         config.maxStake = _maxStake;
@@ -230,25 +254,16 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         emit ConfigUpdated(_minStake, _maxStake, _ujrahRateBps, block.timestamp);
     }
     
-    /**
-     * @notice Admin update Ijarah terms hash
-     */
     function updateTermsHash(bytes32 _newTermsHash) external onlyRole(ADMIN_ROLE) {
         currentTermsHash = _newTermsHash;
         emit TermsUpdated(_newTermsHash, block.timestamp);
     }
     
-    /**
-     * @notice Admin deposit ETH to treasury for ujrah payments
-     */
     function depositTreasury() external payable onlyRole(ADMIN_ROLE) {
         require(msg.value > 0, "Must deposit ETH");
         emit TreasuryDeposit(msg.sender, msg.value, block.timestamp);
     }
     
-    /**
-     * @notice Admin withdraw excess funds (emergency)
-     */
     function withdrawExcess(uint256 _amount) external onlyRole(ADMIN_ROLE) nonReentrant {
         uint256 available = getAvailableBalance();
         require(_amount <= available, "Insufficient available balance");
@@ -257,9 +272,6 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         if (!success) revert TransferFailed();
     }
     
-    /**
-     * @notice Admin force complete akad (emergency only)
-     */
     function forceCompleteAkad(uint256 _akadId, string calldata _reason) 
         external 
         onlyRole(ADMIN_ROLE) 
@@ -269,39 +281,36 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         if (akad.user == address(0)) revert InvalidAkadId();
         if (akad.status != AkadStatus.ACTIVE) revert AkadNotActive();
         
-        // Return principal to user
         uint256 returnAmount = akad.principal;
         akad.status = AkadStatus.COMPLETED;
         totalStaked -= akad.principal;
         totalActiveAkads--;
         totalCompletedAkads++;
         
+        // ← NEW: Burn NFT if exists
+        if (nftEnabled && akad.nftTokenId != 0) {
+            nftContract.burnCertificate(akad.nftTokenId);
+            akad.nftTokenId = 0;
+        }
+        
         (bool success, ) = payable(akad.user).call{value: returnAmount}("");
         if (!success) revert TransferFailed();
         
-         emit AkadForceCompleted(_akadId, akad.user, _reason, block.timestamp);
+        emit AkadForceCompleted(_akadId, akad.user, _reason, block.timestamp);
     }
     
     // ============================================================
     // USER FUNCTIONS
     // ============================================================
     
-    /**
-     * @notice User agree to Ijarah terms
-     * @dev Must be called before creating akad
-     */
     function agreeToTerms(bytes32 _termsHash) external {
         if (_termsHash != currentTermsHash) revert InvalidTermsHash();
-        
         hasAgreedToTerms[msg.sender] = true;
-        
         emit TermsAgreed(msg.sender, _termsHash, block.timestamp);
     }
     
     /**
-     * @notice User create Akad Ijarah (stake ETH)
-     * @param _lockPeriodDays Lock period in days
-     * @return akadId The created akad ID
+     * @notice Create Akad with NFT minting
      */
     function createAkad(uint32 _lockPeriodDays) 
         external 
@@ -310,8 +319,6 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         whenNotPaused 
         returns (uint256 akadId) 
     {
-        // Validations
-        if (!config.isActive) revert PlatformNotActive();
         if (!hasAgreedToTerms[msg.sender]) revert TermsNotAgreed();
         if (msg.value < config.minStake || msg.value > config.maxStake) {
             revert InvalidAmount();
@@ -322,13 +329,25 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         
         akadId = nextAkadId++;
         
-        // Calculate ujrah: (principal * rate * days) / (365 * 10000)
         uint256 ujrahAmount = (msg.value * config.ujrahRateBps * _lockPeriodDays) / (365 * 10000);
-        
         uint64 startTime = uint64(block.timestamp);
         uint64 endTime = startTime + uint64(_lockPeriodDays * 1 days);
         
-        // Create akad
+        // ← NEW: Mint NFT if enabled
+        uint256 nftTokenId = 0;
+        if (nftEnabled) {
+            nftTokenId = nftContract.mintCertificate(
+                akadId,
+                msg.sender,
+                msg.value,
+                _lockPeriodDays,
+                ujrahAmount,
+                startTime,
+                endTime,
+                config.ujrahRateBps
+            );
+        }
+        
         akads[akadId] = AkadIjarah({
             user: msg.sender,
             principal: uint128(msg.value),
@@ -338,11 +357,11 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
             lockPeriodDays: _lockPeriodDays,
             ujrahRate: config.ujrahRateBps,
             status: AkadStatus.ACTIVE,
-            ujrahClaimed: false
+            ujrahClaimed: false,
+            nftTokenId: nftTokenId              // ← NEW
         });
         
         userAkads[msg.sender].push(akadId);
-        
         totalStaked += uint128(msg.value);
         totalActiveAkads++;
         
@@ -354,17 +373,13 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
             _lockPeriodDays,
             startTime,
             endTime,
+            nftTokenId,                        // ← NEW
             block.timestamp
         );
         
         return akadId;
     }
     
-    /**
-     * @notice User claim ujrah (can be claimed anytime, calculated pro-rata)
-     * @param _akadId The akad ID to claim from
-     * @return claimedAmount Amount of ujrah claimed
-     */
     function claimUjrah(uint256 _akadId) 
         external 
         nonReentrant 
@@ -372,12 +387,10 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
     {
         AkadIjarah storage akad = akads[_akadId];
         
-        // Validations
         if (akad.user != msg.sender) revert NotAkadOwner();
         if (akad.status != AkadStatus.ACTIVE) revert AkadNotActive();
         if (akad.ujrahClaimed) revert UjrahAlreadyClaimed();
         
-        // Calculate earned ujrah (pro-rata based on time)
         uint256 timeElapsed = block.timestamp >= akad.endTime 
             ? akad.endTime - akad.startTime 
             : block.timestamp - akad.startTime;
@@ -388,11 +401,9 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         require(claimedAmount > 0, "No ujrah to claim");
         require(address(this).balance >= claimedAmount, "Insufficient treasury balance");
         
-        // Mark as claimed (simplified - in production, track partial claims)
         akad.ujrahClaimed = true;
         totalUjrahPaid += uint128(claimedAmount);
         
-        // Transfer ujrah to user
         (bool success, ) = payable(msg.sender).call{value: claimedAmount}("");
         if (!success) revert TransferFailed();
         
@@ -401,54 +412,51 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         return claimedAmount;
     }
     
-    /**
-     * @notice User withdraw principal after lock period ends
-     * @param _akadId The akad ID to withdraw from
-     */
     function withdrawPrincipal(uint256 _akadId) external nonReentrant {
         AkadIjarah storage akad = akads[_akadId];
         
-        // Validations
         if (akad.user != msg.sender) revert NotAkadOwner();
         if (akad.status != AkadStatus.ACTIVE) revert AkadNotActive();
         if (block.timestamp < akad.endTime) revert LockPeriodNotEnded();
         
         uint256 returnAmount = akad.principal;
         
-        // Update state
         akad.status = AkadStatus.COMPLETED;
         totalStaked -= akad.principal;
         totalActiveAkads--;
         totalCompletedAkads++;
         
-        // Transfer principal back to user
+        // ← NEW: Burn NFT if exists
+        if (nftEnabled && akad.nftTokenId != 0) {
+            nftContract.burnCertificate(akad.nftTokenId);
+            akad.nftTokenId = 0;
+        }
+        
         (bool success, ) = payable(msg.sender).call{value: returnAmount}("");
         if (!success) revert TransferFailed();
         
         emit PrincipalWithdrawn(_akadId, msg.sender, returnAmount, block.timestamp);
     }
     
-    /**
-     * @notice User request early withdrawal (with penalty)
-     * @param _akadId The akad ID to withdraw from
-     */
     function earlyWithdrawal(uint256 _akadId) external nonReentrant {
         AkadIjarah storage akad = akads[_akadId];
         
-        // Validations
         if (akad.user != msg.sender) revert NotAkadOwner();
         if (akad.status != AkadStatus.ACTIVE) revert AkadNotActive();
         
-        // Calculate penalty and return amount
         uint256 penalty = (akad.principal * config.earlyWithdrawalPenaltyBps) / 10000;
         uint256 returnAmount = akad.principal - penalty;
         
-        // Update state
         akad.status = AkadStatus.CANCELLED;
         totalStaked -= akad.principal;
         totalActiveAkads--;
         
-        // Transfer reduced principal to user
+        // ← NEW: Burn NFT if exists
+        if (nftEnabled && akad.nftTokenId != 0) {
+            nftContract.burnCertificate(akad.nftTokenId);
+            akad.nftTokenId = 0;
+        }
+        
         (bool success, ) = payable(msg.sender).call{value: returnAmount}("");
         if (!success) revert TransferFailed();
         
@@ -474,7 +482,8 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         uint32 lockPeriodDays,
         uint32 ujrahRate,
         AkadStatus status,
-        bool ujrahClaimed
+        bool ujrahClaimed,
+        uint256 nftTokenId                    // ← NEW
     ) {
         AkadIjarah memory akad = akads[_akadId];
         return (
@@ -486,7 +495,8 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
             akad.lockPeriodDays,
             akad.ujrahRate,
             akad.status,
-            akad.ujrahClaimed
+            akad.ujrahClaimed,
+            akad.nftTokenId                   // ← NEW
         );
     }
     
@@ -501,7 +511,8 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         uint256 completedAkads,
         uint256 totalAkads,
         bool isActive,
-        bool isPaused
+        bool isPaused,
+        bool _nftEnabled                      // ← NEW
     ) {
         return (
             totalStaked,
@@ -510,7 +521,8 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
             totalCompletedAkads,
             nextAkadId,
             config.isActive,
-            paused()
+            paused(),
+            nftEnabled                        // ← NEW
         );
     }
     
@@ -591,6 +603,19 @@ contract AmanahStakesCore is AccessControl, ReentrancyGuard, Pausable {
         penalty = (akad.principal * config.earlyWithdrawalPenaltyBps) / 10000;
         returnAmount = akad.principal - penalty;
         return (penalty, returnAmount);
+    }
+    
+    // ← NEW: Get NFT info
+    function getAkadNFT(uint256 _akadId) external view returns (uint256 nftTokenId) {
+        return akads[_akadId].nftTokenId;
+    }
+    
+    function isNFTEnabled() external view returns (bool) {
+        return nftEnabled;
+    }
+    
+    function getNFTContract() external view returns (address) {
+        return address(nftContract);
     }
     
     // ============================================================

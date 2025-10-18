@@ -1,0 +1,16 @@
+{
+  "network": "baseSepolia",
+  "chainId": 84532,
+  "deployer": "0x027822307511a055eb0f5907f2685dab1204e14b",
+  "timestamp": "2025-10-17T16:55:13.822Z",
+  "blockNumber": "32475934",
+  "contracts": {
+    "SyariahRegistry": "0xcb7941f3710365c31352197a86ca0a2d1ada654e",
+    "AmanahStakesNFT": "0x24618a8974c099da2e47729eb6f21d95755211e0",
+    "AmanahStakesCore": "0x7ff069bc532c43d1dd5777e69729cfc5d14cfce6"
+  },
+  "terms": {
+    "ipfs": "QmExampleIPFSHashForIjarahTermsV1",
+    "hash": "0xb0d9c3a753f5f6fb70ef5167ef24bc7c4d054a179255d9b546dd0416cdd99b52"
+  }
+}

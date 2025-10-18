@@ -22,7 +22,7 @@ const ProfilePage = () => {
     const router = useRouter();
 
     const { address, isConnected } = useAccount();
-    const { connect, isPending } = useConnect({ connector: injected() });
+    const { connect, connectors, isPending } = useConnect();
     const { disconnect } = useDisconnect();
 
     const menuItems = [
