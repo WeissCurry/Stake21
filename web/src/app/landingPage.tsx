@@ -284,8 +284,9 @@ const LandingPage: NextPage = () => {
           <div className="grid md:grid-cols-5 gap-12">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <ShieldCheck className="h-7 w-7 text-teal-400" />
-                <span className="text-xl font-bold text-white">Stake21s</span>
+                {/* <ShieldCheck className="h-7 w-7 text-teal-400" /> */}
+                <Image src={Logo} alt="Stake21 Logo" className="lg:w-[100px] w-9" />
+                <span className="text-xl font-bold text-white">Stake21</span>
               </div>
             </div>
             <div className="md:col-start-3">

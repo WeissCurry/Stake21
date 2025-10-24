@@ -153,7 +153,7 @@ export default function StakingPage() {
       }
     } catch (err: any) {
       console.error("loadPlatform err", err);
-      setError(err?.reason || err?.message || "Gagal load platform");
+      setError(err?.reason || err?.message || "Failed to load platform");
     } finally {
       setLoading(false);
     }
@@ -220,7 +220,7 @@ export default function StakingPage() {
 
   const handleAgreeToTerms = async () => {
     if (!isConnected || !currentTermsHash || !window.ethereum) {
-      setError("Wallet atau terms tidak siap");
+      setError("Wallet or terms not ready");
       return;
     }
     setTxLoading(true);
@@ -234,36 +234,36 @@ export default function StakingPage() {
       setHasAgreed(true);
     } catch (err: any) {
       console.error("agreeToTerms error:", err);
-      setError(err?.reason || err?.message || "Gagal setuju terms");
+      setError(err?.reason || err?.message || "Failed to agree to terms");
     } finally {
       setTxLoading(false);
     }
   };
 
-   const handleCreateAkad = async () => {
+  const handleCreateAkad = async () => {
     if (!isConnected || !config || !window.ethereum) {
-      setError("Wallet belum connect");
+      setError("Wallet not connected");
       return;
     }
 
-    // VALIDASI: Check agreement status dari contract langsung
+    // VALIDATION: Check agreement status from contract directly
     try {
       const currentAgreed = await readContract.hasAgreedToTerms(walletAddress);
       if (!currentAgreed) {
-        setError("⚠️ Anda belum menyetujui Terms & Conditions. Scroll ke atas untuk agree terlebih dahulu.");
+        setError("⚠️ You haven't agreed to Terms & Conditions. Scroll up to agree first.");
         setHasAgreed(false); // Update state
         
-        // Auto scroll ke terms card
+        // Auto scroll to terms card
         if (termsCardRef.current) {
           termsCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         return;
       }
-      // Update state jika ternyata sudah agreed
+      // Update state if already agreed
       if (!hasAgreed) setHasAgreed(true);
     } catch (checkErr) {
       console.error("Error checking agreement:", checkErr);
-      setError("Gagal memeriksa status agreement. Silakan coba lagi.");
+      setError("Failed to verify agreement status. Please try again.");
       return;
     }
     
@@ -271,17 +271,17 @@ export default function StakingPage() {
     const lockDaysNum = Number(selectedLockDays);
     
     if (!selectedAmount || amountNum <= 0) {
-      setError("Masukkan jumlah stake yang valid");
+      setError("Enter a valid stake amount");
       return;
     }
     
     if (amountNum < Number(config.minStake) || amountNum > Number(config.maxStake)) {
-      setError(`Stake harus ${config.minStake}-${config.maxStake} ETH`);
+      setError(`Stake must be ${config.minStake}-${config.maxStake} ETH`);
       return;
     }
     
     if (lockDaysNum < config.minLockDays || lockDaysNum > config.maxLockDays) {
-      setError(`Lock period ${config.minLockDays}-${config.maxLockDays} hari`);
+      setError(`Lock period must be ${config.minLockDays}-${config.maxLockDays} days`);
       return;
     }
 
@@ -294,7 +294,7 @@ export default function StakingPage() {
       
       const value = parseEther(selectedAmount);
       
-      // Estimasi gas terlebih dahulu untuk deteksi error lebih awal
+      // Estimate gas first to detect errors early
       try {
         await contract.createAkad.estimateGas(lockDaysNum, { value });
       } catch (estimateErr: any) {
@@ -304,11 +304,11 @@ export default function StakingPage() {
         if (walletAddress) {
           const balance = await provider.getBalance(walletAddress);
           if (balance < value) {
-            throw new Error(`Saldo tidak cukup. Anda memiliki ${formatEther(balance)} ETH`);
+            throw new Error(`Insufficient balance. You have ${formatEther(balance)} ETH`);
           }
         }
         
-        throw new Error("Transaksi gagal validasi. Pastikan semua kondisi terpenuhi dan Anda memiliki cukup gas.");
+        throw new Error("Transaction validation failed. Ensure all conditions are met and you have enough gas.");
       }
       
       const tx = await contract.createAkad(lockDaysNum, { value });
@@ -319,7 +319,7 @@ export default function StakingPage() {
       await Promise.all([loadUserAkads(), loadPlatform()]);
     } catch (err: any) {
       console.error("createAkad error:", err);
-      setError(err?.reason || err?.message || "Gagal buat akad");
+      setError(err?.reason || err?.message || "Failed to create akad");
     } finally {
       setTxLoading(false);
     }
@@ -338,7 +338,7 @@ export default function StakingPage() {
       await Promise.all([loadUserAkads(), loadPlatform()]);
     } catch (err: any) {
       console.error("claimUjrah error:", err);
-      setError(err?.reason || err?.message || "Gagal klaim ujrah");
+      setError(err?.reason || err?.message || "Failed to claim ujrah");
     } finally {
       setTxLoading(false);
     }
@@ -357,14 +357,14 @@ export default function StakingPage() {
       await Promise.all([loadUserAkads(), loadPlatform()]);
     } catch (err: any) {
       console.error("withdrawPrincipal error:", err);
-      setError(err?.reason || err?.message || "Gagal tarik principal");
+      setError(err?.reason || err?.message || "Failed to withdraw principal");
     } finally {
       setTxLoading(false);
     }
   };
 
   const handleEarlyWithdrawal = async (akadId: number) => {
-    if (!confirm("⚠️ Early withdrawal akan dikenakan penalty. Lanjutkan?")) return;
+    if (!confirm("⚠️ Early withdrawal will incur a penalty. Continue?")) return;
     if (!window.ethereum) return;
     setTxLoading(true);
     setError(null);
@@ -377,7 +377,7 @@ export default function StakingPage() {
       await Promise.all([loadUserAkads(), loadPlatform()]);
     } catch (err: any) {
       console.error("earlyWithdrawal error:", err);
-      setError(err?.reason || err?.message || "Gagal early withdrawal");
+      setError(err?.reason || err?.message || "Failed early withdrawal");
     } finally {
       setTxLoading(false);
     }
@@ -385,7 +385,7 @@ export default function StakingPage() {
 
   const handleTogglePlatform = async (activate: boolean) => {
     if (!isAdmin) {
-      setError("Hanya admin!");
+      setError("Admin only!");
       return;
     }
     if (!window.ethereum) return;
@@ -402,7 +402,7 @@ export default function StakingPage() {
       await loadPlatform();
     } catch (err: any) {
       console.error("togglePlatform error:", err);
-      setError(err?.reason || err?.message || "Gagal toggle platform");
+      setError(err?.reason || err?.message || "Failed to toggle platform");
     } finally {
       setTxLoading(false);
     }
@@ -437,7 +437,7 @@ export default function StakingPage() {
       <header className="bg-gradient-hero shadow-medium text-white">
         <div className="max-w-md mx-auto px-6 py-8">
           <h1 className="text-2xl font-bold mb-1">Stake ETH</h1>
-          <p className="text-sm opacity-90">Staking ETH Syariah - Dapatkan Ujrah Halal</p>
+          <p className="text-sm opacity-90">Shariah-Compliant ETH Staking - Earn Halal Ujrah</p>
           {walletAddress && (
             <p className="text-xs mt-2 opacity-80">
               {walletAddress.slice(0,6)}...{walletAddress.slice(-4)}
@@ -459,10 +459,10 @@ export default function StakingPage() {
         {stats && !stats.isActive && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-amber-400">Platform Tidak Aktif</p>
+              <p className="text-sm font-medium text-amber-400">Platform Inactive</p>
               {isAdmin && (
                 <Button onClick={() => handleTogglePlatform(true)} size="sm" disabled={txLoading} className="h-8 bg-amber-500 hover:bg-amber-600 text-white">
-                  Aktifkan
+                  Activate
                 </Button>
               )}
             </div>
@@ -471,7 +471,7 @@ export default function StakingPage() {
 
         {stats && stats.isPaused && (
           <div className="bg-slate-700/30 border border-slate-600/30 rounded-2xl p-4">
-            <p className="text-sm font-medium text-slate-400">Platform Dijeda</p>
+            <p className="text-sm font-medium text-slate-400">Platform Paused</p>
           </div>
         )}
 
@@ -486,22 +486,22 @@ export default function StakingPage() {
                   <Shield className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white">Syarat & Ketentuan</h3>
-                  <p className="text-xs text-slate-400">Wajib sebelum staking</p>
+                  <h3 className="font-semibold text-white">Terms & Conditions</h3>
+                  <p className="text-xs text-slate-400">Required before staking</p>
                 </div>
               </div>
 
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                <p className="text-xs text-amber-300 mb-2">⚠️ Penting:</p>
+                <p className="text-xs text-amber-300 mb-2">⚠️ Important:</p>
                 <ul className="text-xs text-slate-300 space-y-1">
-                  <li>• Anda harus agree to terms sebelum bisa melakukan staking</li>
-                  <li>• Setiap wallet hanya perlu agree sekali</li>
-                  <li>• Proses ini diperlukan untuk keamanan dan kepatuhan</li>
+                  <li>• You must agree to terms before staking</li>
+                  <li>• Each wallet only needs to agree once</li>
+                  <li>• This process is required for security and compliance</li>
                 </ul>
               </div>
 
               <p className="text-sm text-slate-300">
-                Dengan menyetujui, Anda memahami risiko dan aturan staking sesuai prinsip syariah.
+                By agreeing, you understand the risks and rules of staking according to Shariah principles.
               </p>
 
               <Button 
@@ -510,7 +510,7 @@ export default function StakingPage() {
                 className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl shadow-lg shadow-amber-500/20"
               >
                 {txLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Shield className="w-4 h-4 mr-2" />}
-                Setuju & Lanjutkan
+                Agree & Continue
               </Button>
 
               {currentTermsHash && (
@@ -529,7 +529,7 @@ export default function StakingPage() {
             
             <div className="relative z-10 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-white">Buat Akad Baru</h3>
+                <h3 className="text-lg font-semibold text-white">Create New Akad</h3>
                 <span className="px-3 py-1 bg-slate-700/50 rounded-full text-xs text-slate-300">
                   #{nextAkadId}
                 </span>
@@ -537,7 +537,7 @@ export default function StakingPage() {
 
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-slate-400 mb-1.5 block">Jumlah Stake</label>
+                  <label className="text-xs text-slate-400 mb-1.5 block">Stake Amount</label>
                   <input
                     type="number"
                     step="0.001"
@@ -549,10 +549,10 @@ export default function StakingPage() {
                     className="w-full h-12 px-4 rounded-xl border border-slate-700 bg-slate-800/50 text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                   />
                 </div>
-
+                
                 <div>
-                  <label className="text-xs text-slate-400 mb-1.5 block">Periode Lock</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <label className="text-xs text-slate-400 mb-1.5 block">Lock Period</label>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
                     {stakingPlans.map((plan) => (
                       <button
                         key={plan.days}
@@ -563,17 +563,31 @@ export default function StakingPage() {
                             : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
                         }`}
                       >
-                        <div className="text-sm font-semibold">{plan.days} Hari</div>
+                        <div className="text-sm font-semibold">{plan.days} Days</div>
                         <div className="text-xs opacity-70">{plan.apy} APY</div>
                       </button>
                     ))}
+                  </div>
+                  
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="1"
+                      min={config.minLockDays}
+                      max={config.maxLockDays}
+                      placeholder={`Custom: ${config.minLockDays}-${config.maxLockDays} days`}
+                      value={selectedLockDays}
+                      onChange={(e) => setSelectedLockDays(e.target.value)}
+                      className="w-full h-11 px-4 pr-16 rounded-xl border border-slate-700 bg-slate-800/50 text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-500">days</span>
                   </div>
                 </div>
 
                 {selectedAmount && selectedLockDays && (
                   <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-300">Estimasi Ujrah</span>
+                      <span className="text-sm text-slate-300">Estimated Ujrah</span>
                       <span className="text-lg font-bold text-emerald-400">
                         {calculateEstimatedUjrah()} ETH
                       </span>
@@ -592,7 +606,7 @@ export default function StakingPage() {
                 ) : (
                   <ArrowRight className="w-4 h-4 mr-2" />
                 )}
-                Mulai Staking
+                Start Staking
               </Button>
             </div>
           </div>
@@ -601,7 +615,7 @@ export default function StakingPage() {
         {/* User Akads */}
         <div className="bg-card rounded-2xl p-6 border border-border shadow-medium space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-foreground">Akad Saya</h3>
+            <h3 className="text-lg font-semibold text-foreground">My Akads</h3>
             <span className="px-3 py-1 bg-primary/10 rounded-full text-sm font-medium text-primary">
               {userAkads.length}
             </span>
@@ -610,8 +624,8 @@ export default function StakingPage() {
           {userAkads.length === 0 ? (
             <div className="text-center py-12">
               <Wallet className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-              <p className="text-slate-400 text-sm">Belum ada akad aktif</p>
-              <p className="text-slate-500 text-xs mt-1">Buat akad pertama Anda sekarang</p>
+              <p className="text-slate-400 text-sm">No active akads yet</p>
+              <p className="text-slate-500 text-xs mt-1">Create your first akad now</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -709,25 +723,25 @@ export default function StakingPage() {
             <MetricCard
               title="Total Staked"
               value={`${parseFloat(stats.totalStaked).toFixed(2)} ETH`}
-              variant="secondary"
+              variant="default"
               icon={<Lock className="w-5 h-5" />}
             />
             <MetricCard
               title="Total Ujrah"
               value={`${parseFloat(stats.totalUjrahPaid).toFixed(4)} ETH`}
-              variant="secondary"
+              variant="success"
               icon={<TrendingUp className="w-5 h-5" />}
             />
             <MetricCard
               title="Active Akads"
               value={stats.activeAkads.toString()}
-              variant="secondary"
+              variant="accent"
               icon={<Zap className="w-5 h-5" />}
             />
             <MetricCard
               title="Completed"
               value={stats.completedAkads.toString()}
-              variant="secondary"
+              variant="default"
               icon={<CheckCircle className="w-5 h-5" />}
             />
           </div>

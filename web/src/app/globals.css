@@ -92,3 +92,7 @@
     font-family: 'Inter', system-ui, sans-serif;
   }
 }
+
+.swiper-wrapper { /* biar continous */
+transition-timing-function: linear !important;
+}
