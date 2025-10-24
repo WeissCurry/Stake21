@@ -46,7 +46,7 @@ const WithdrawPage = () => {
     const [pendingRewards] = useState(0.081);
     const [lockedBalance] = useState(0);
     const [currentAkadId, setCurrentAkadId] = useState(0);
-    const [txHash, setTxHash] = useState("");
+    const [txHash, setTxHash] = useState<`0x${string}` | undefined>(undefined);
 
     const minWithdrawal = 0.1;
     const ETH_PRICE = 2000;
@@ -61,10 +61,12 @@ const WithdrawPage = () => {
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI,
         functionName: "getAvailableBalance",
-        enabled: isConnected && !!address,
+        query: {
+            enabled: isConnected && !!address,
+        }
     });
 
-    const availableBalance = availableBalanceWei 
+    const availableBalance = availableBalanceWei && typeof availableBalanceWei === 'bigint'
         ? parseFloat(formatEther(availableBalanceWei)) 
         : 0;
 
@@ -75,16 +77,16 @@ const WithdrawPage = () => {
         abi: CONTRACT_ABI,
         functionName: "getUserAkads",
         args: [address || "0x0"],
-        enabled: isConnected && !!address,
+        query: {
+            enabled: isConnected && !!address,
+        }
     });
 
-    const userAkads = userAkadsData || [];
-
     useEffect(() => {
-        if (userAkads.length > 0) {
-            setCurrentAkadId(userAkads[userAkads.length - 1]);
+        if (userAkadsData && Array.isArray(userAkadsData) && userAkadsData.length > 0) {
+            setCurrentAkadId(Number(userAkadsData[userAkadsData.length - 1]));
         }
-    }, [userAkads]);
+    }, [userAkadsData]);
 
     // Write contract
     const { writeContract, isPending: isWritePending } = useWriteContract({
@@ -108,9 +110,12 @@ const WithdrawPage = () => {
         }
     });
 
-    const { isLoading: isConfirming } = useWaitForTransactionReceipt({
+    const { isLoading: isConfirming, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
         hash: txHash,
-        onSuccess: () => {
+    });
+
+    useEffect(() => {
+        if (isTxSuccess && txHash) {
             setShowSuccess(true);
             refetchBalance();
             setTimeout(() => {
@@ -119,7 +124,7 @@ const WithdrawPage = () => {
                 router.push("/dashboard");
             }, 3000);
         }
-    });
+    }, [isTxSuccess, txHash, refetchBalance, router]);
 
     const handleWithdraw = async () => {
         if (!isConnected) {

@@ -103,7 +103,7 @@ export function WalletConnectButton() {
               </button>
               <button
                 onClick={() => {
-                  connect({ connector: { id: 'injected', name: 'Injected' } });
+                  connect({ connector: injected() });
                   setShowOptions(false);
                 }}
                 className="flex items-center gap-3 w-full px-4 py-3 text-left text-white hover:bg-gray-800 rounded-md transition-colors"
