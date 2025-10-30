@@ -5,43 +5,43 @@ import { ChevronDown } from 'lucide-react';
 
 type FAQ = {
     question: string;
-    answer: string | string[]; 
+    answer: string | string[];
 };
 
 const faqs: FAQ[] = [
     {
-        question: "What's the main difference between Stake21s and regular staking?",
+        question: "What's the main difference between Stake21s and regular FLOW staking?",
         answer:
-            "The key difference is the contract ('Akad'). Regular staking often resembles a loan with uncertain interest (potential 'Riba' and 'Gharar'). Stake21s uses an 'Ijarah' (lease) contract. You lease the 'validation rights' of your ETH to us, and in return, you receive a fixed, pre-agreed rental fee ('Ujrah'). This structure eliminates financial uncertainty for you and ensures Sharia compliance.",
+            "The main difference lies in the contract ('Akad'). Regular FLOW staking typically resembles a loan structure with uncertain yield — exposing investors to elements of Riba (interest) and Gharar (uncertainty). Stake21s uses an 'Ijarah' (lease) model instead. You lease your FLOW validation rights to us, and we pay you a fixed, pre-agreed rental fee ('Ujrah'), ensuring the process remains halal and transparent.",
     },
     {
-        question: 'How is my return fixed if market staking rewards fluctuate?',
+        question: 'How are my returns fixed if FLOW staking rewards fluctuate?',
         answer:
-            "This is central to our model. The fluctuating rewards from staking (e.g., 3.5% or 4%) are collected into the platform's Treasury. We then pay you your fixed rental fee from this Treasury. Any profit or loss from the market fluctuation is a business risk absorbed entirely by the platform, not the user.",
+            "Market staking rewards for FLOW can vary based on network performance and validator uptime. At Stake21s, all rewards go into a shared Treasury. You receive your fixed Ujrah payment from that Treasury, regardless of market fluctuations. Any gain or loss from the network is absorbed by the platform, not by you — protecting your peace of mind and preserving Sharia compliance.",
     },
     {
-        question: 'How do you ensure continuous Sharia compliance?',
+        question: 'How do you maintain ongoing Sharia compliance?',
         answer:
-            "Compliance isn't just a one-time check. Our platform is built on 'Radical Transparency.' An independent, third-party Sharia Auditor has read-only on-chain access to verify all fund flows. They will publish periodic reports, ensuring our operations remain provably compliant at all times.",
+            "Our platform operates under the principle of 'Radical Transparency.' A certified Sharia Auditor continuously monitors our smart contracts and Treasury movements on-chain. They have read-only access to ensure all flows remain compliant with Islamic principles, with audit reports published publicly at regular intervals.",
     },
     {
-        question: 'What are the primary risks involved?',
+        question: 'What are the potential risks involved with FLOW staking?',
         answer: [
-            'While your return rate is fixed, all DeFi protocols have inherent risks we work to mitigate:',
-            'Smart Contract Risk: The risk of bugs in the code. Our contracts undergo rigorous third-party security audits before deployment.',
-            'Slashing Risk: The risk of a validator being penalized by the network. Our Treasury is designed to cover potential slashing penalties to protect user principal.',
+            'While your rental return (Ujrah) is fixed, all blockchain protocols come with inherent risks, which we actively mitigate:',
+            '• Smart Contract Risk: Potential code vulnerabilities. Our contracts are audited by top-tier security firms before deployment.',
+            '• Validator Risk: If a validator is penalized (slashed) by the network, our Treasury is structured to absorb that penalty — protecting your leased FLOW principal.',
         ],
     },
     {
-        question: 'What is the role of the NFT/SBT I receive after depositing?',
+        question: 'What does the NFT/SBT I receive after depositing represent?',
         answer:
-            "The token (NFT/SBT) you receive is a digital certificate representing your lease agreement. It serves as your on-chain proof-of-lease. You will need to present and 'burn' this token to initiate the withdrawal process and reclaim your principal ETH.",
+            "When you lease your FLOW, you’ll receive a digital proof — an NFT or SBT — that acts as your on-chain 'Ijarah Certificate'. This token represents your lease agreement and is required when you later withdraw your principal FLOW. Once redeemed, the NFT/SBT is burned automatically by the contract.",
     },
     {
-        question: 'How do I get started and withdraw my funds?',
+        question: 'How do I start staking and later withdraw my FLOW?',
         answer: [
-            'To Start: Simply connect your wallet via our Farcaster Frame or web app, agree to the clear-text Ijarah contract, and deposit your ETH.',
-            'To Withdraw: Access the user dashboard, request a withdrawal, burn your proof-of-lease NFT/SBT, and the smart contract will automatically return your principal ETH to your wallet.',
+            'To Start: Connect your wallet on our app or Farcaster Frame, review the Ijarah agreement, and deposit your FLOW tokens.',
+            'To Withdraw: Open your dashboard, submit a withdrawal request, and burn your Ijarah Certificate NFT/SBT. The smart contract will return your principal FLOW automatically to your wallet.',
         ],
     },
 ];
@@ -60,7 +60,7 @@ export default function FaqSection() {
                     Common Questions Answered
                 </h2>
                 <p className="text-gray-400 mb-12">
-                    Everything you need to know about Sharia-compliant ETH staking with
+                    Everything you need to know about Sharia-compliant FLOW staking with
                     Stake21s.
                 </p>
             </div>
@@ -73,15 +73,17 @@ export default function FaqSection() {
                         >
                             <h4 className="text-lg font-medium text-white">{faq.question}</h4>
                             <ChevronDown
-                                className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${openIndex === index ? 'rotate-180' : ''
-                                    }`}
+                                className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${
+                                    openIndex === index ? 'rotate-180' : ''
+                                }`}
                             />
                         </button>
                         <div
-                            className={`overflow-hidden transition-all duration-500 ease-in-out ${openIndex === index
+                            className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                                openIndex === index
                                     ? 'max-h-96 opacity-100 mt-4'
                                     : 'max-h-0 opacity-0'
-                                }`}
+                            }`}
                         >
                             {Array.isArray(faq.answer) ? (
                                 <ul className="list-disc list-inside space-y-2 text-gray-400 leading-relaxed">

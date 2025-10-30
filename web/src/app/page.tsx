@@ -63,13 +63,13 @@ const LandingPage: NextPage = () => {
                     <div className="grid md:grid-cols-2 gap-16 items-center">
                         <div className="text-center md:text-left">
                             <span className="text-teal-400 font-semibold mb-2 block">
-                                SHARIA-COMPLIANT ETH STAKING
+                                SHARIA-COMPLIANT FLOW STAKING
                             </span>
                             <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight mb-6">
-                                Stake ETH with Confidence. Halal, Transparent, Secure.
+                                Stake FLOW with Confidence. Halal, Transparent, Secure.
                             </h1>
                             <p className="text-lg text-gray-400 mb-8 max-w-lg mx-auto md:mx-0">
-                                Stake21 introduces a revolutionary Sharia-compliant model, allowing you to earn fixed returns on your ETH through a transparent rental agreement (Akad Ijarah), free from uncertainty and interest.
+                                Stake21 introduces a revolutionary Sharia-compliant model, allowing you to earn fixed returns on your FLOW through a transparent rental agreement (Akad Ijarah), free from uncertainty and interest.
                             </p>
                             <div className="flex justify-center md:justify-start gap-4">
                                 <a href="/staking" className="bg-teal-400 text-black font-semibold py-3 px-6 rounded-lg hover:bg-teal-500 transition-colors inline-block text-center">
@@ -108,7 +108,7 @@ const LandingPage: NextPage = () => {
                     </div>
                 </section>
 
-                {/* <section className='py-12'>
+                {/* <section className=''>
                     <SwiperPartner />
                 </section> */}
 
@@ -126,7 +126,7 @@ const LandingPage: NextPage = () => {
                             Our platform is built on the principles of Akad Ijarah (rental), avoiding interest (Riba) and uncertainty (Gharar). Your investment aligns with your faith.
                         </FeatureCard>
                         <FeatureCard icon={TrendingUp} title="Fixed, Predictable Returns">
-                            Receive a fixed, pre-agreed rental fee (Ujrah) for your ETH's validation rights. We absorb the staking reward volatility, you enjoy peace of mind.
+                            Receive a fixed, pre-agreed rental fee (Ujrah) for your FLOW's validation rights. We absorb the staking reward volatility, you enjoy peace of mind.
                         </FeatureCard>
                         <FeatureCard icon={Code} title="Radical Transparency">
                             All transactions are verifiable on-chain. Our compliance is continuously monitored by an independent Sharia auditor, ensuring unwavering integrity.
@@ -141,14 +141,14 @@ const LandingPage: NextPage = () => {
                             <span className="text-teal-400 font-semibold mb-2 block">INNOVATION</span>
                             <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">The Ijarah Model: A Halal Alternative</h2>
                             <p className="text-gray-400 mb-8">
-                                We've reimagined staking. Instead of lending your ETH for interest, you lease its validation rights for a fixed fee. This creates a fair and transparent system.
+                                We've reimagined staking. Instead of lending your FLOW for interest, you lease its validation rights for a fixed fee. This creates a fair and transparent system.
                             </p>
                             <div className="space-y-6">
                                 <div className="flex gap-4">
                                     <div className="text-xl font-bold text-teal-400">1.</div>
                                     <div>
                                         <h3 className="font-semibold text-white">Clear & Fair Agreement</h3>
-                                        <p className="text-gray-400">You (the Mu'jir) agree to lease your ETH's validation rights via a clear digital contract.</p>
+                                        <p className="text-gray-400">You (the Mu'jir) agree to lease your FLOW's validation rights via a clear digital contract.</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-4">
@@ -216,7 +216,7 @@ const LandingPage: NextPage = () => {
                         <span className="text-teal-400 font-semibold mb-2 block">GET STARTED</span>
                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Join the Halal DeFi Revolution</h2>
                         <p className="text-gray-400 mb-8">
-                            Start your journey into a faith-compliant financial future. Stake your ETH with principles and peace of mind, right from your Farcaster feed.
+                            Start your journey into a faith-compliant financial future. Stake your FLOW with principles and peace of mind, right from your Farcaster feed.
                         </p>
                         <a href="/staking" className="bg-teal-400 text-black font-semibold py-3 px-8 rounded-lg hover:bg-teal-500 transition-colors text-lg">
                             Start Staking Today
