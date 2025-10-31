@@ -1,20 +1,38 @@
 "use client";
 
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { mainnet, sepolia } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { injected, metaMask, coinbaseWallet } from "wagmi/connectors";
+import { NETWORK_CONFIG } from "@/config/network"; // Import from network.ts
+
+// Konfigurasi Flow EVM Testnet dari NETWORK_CONFIG
+const flowTestnet = {
+  id: NETWORK_CONFIG.chainIdDecimal,
+  name: NETWORK_CONFIG.chainName,
+  network: "flow-testnet",
+  nativeCurrency: {
+    name: NETWORK_CONFIG.nativeSymbol,
+    symbol: NETWORK_CONFIG.nativeSymbol,
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: { http: [NETWORK_CONFIG.rpcUrl] },
+  },
+  blockExplorers: {
+    default: { name: "FlowScan", url: NETWORK_CONFIG.explorerUrl },
+  },
+  testnet: true,
+};
 
 const config = createConfig({
-  chains: [mainnet, sepolia],
+  chains: [flowTestnet],
   connectors: [
     metaMask(),
     coinbaseWallet({ appName: "DEEN" }),
     injected(),
   ],
   transports: {
-    [mainnet.id]: http("https://mainnet.base.org"),
-    [sepolia.id]: http("https://sepolia.base.org"),
+    [flowTestnet.id]: http(NETWORK_CONFIG.rpcUrl),
   },
   ssr: true,
 });
