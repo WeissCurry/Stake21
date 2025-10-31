@@ -97,7 +97,8 @@ Our growth combines **trust-based partnerships** with **community-driven adoptio
 ## 🔗 Links
 
 - **Live Project:** [https://stake21.ideatecore.com/](https://stake21.ideatecore.com/)  
-- **GitHub Repository:** [https://github.com/weisscurry/Stake21](https://github.com/weisscurry/Stake21)  
+- **GitHub Repository:** [https://github.com/weisscurry/Stake21](https://github.com/weisscurry/Stake21)
+- **Social Media (X / Twitter):** [https://x.com/mieayam_id/status/1984280439956361429](https://x.com/mieayam_id/status/1984280439956361429)
 - **Contact:** maulanasykari@gmail.com  
 
 ---
