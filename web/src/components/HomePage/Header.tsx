@@ -13,7 +13,6 @@ export default function Header() {
                 <nav className="hidden md:flex items-center gap-8">
                     <a href="#" className="hover:text-white transition-colors">How It Works</a>
                     <a href="#" className="hover:text-white transition-colors">Sharia Compliance</a>
-                    <a href="#" className="hover:text-white transition-colors">Farcaster</a>
                     <a href="#" className="hover:text-white transition-colors">FAQ</a>
                 </nav>
                 <div className="hidden md:flex items-center gap-4">

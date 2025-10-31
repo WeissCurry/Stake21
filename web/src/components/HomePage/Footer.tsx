@@ -16,7 +16,7 @@ export default function Footer() {
                         <h4 className="font-semibold text-white mb-4">Product</h4>
                         <ul className="space-y-3 text-gray-400">
                             <li><a href="#" className="hover:text-white">How It Works</a></li>
-                            <li><a href="#" className="hover:text-white">Dashboard</a></li>
+                            <li><a href="/dashboard" className="hover:text-white">Dashboard</a></li>
                             <li><a href="#" className="hover:text-white">Security</a></li>
                         </ul>
                     </div>
@@ -42,7 +42,7 @@ export default function Footer() {
                     <div className="flex gap-6 mt-4 md:mt-0">
                         <a href="#" className="text-gray-500 hover:text-white"><Twitter /></a>
                         <a href="#" className="text-gray-500 hover:text-white"><Linkedin /></a>
-                        <a href="https://github.com/riyqnn/Deen" className="text-gray-500 hover:text-white"><Github /></a>
+                        <a href="https://github.com/weisscurry/stake21" className="text-gray-500 hover:text-white"><Github /></a>
                     </div>
                 </div>
             </div>

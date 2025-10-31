@@ -7,14 +7,16 @@ import 'swiper/css'
 
 import LogoBase from '../../../public/BaseLogo.png'
 import LogoEth from '../../../public/EthLogo.png'
+import LogoFlow from '../../../public/FlowLogo.svg'
 
 const logos = [
     { src: LogoBase, alt: 'Base' },
     { src: LogoEth, alt: 'Ethereum' },
+    { src: LogoFlow, alt: 'Flow' },
     { src: LogoBase, alt: 'Base' },
     { src: LogoEth, alt: 'Ethereum' },
-    { src: LogoBase, alt: 'Base' },
-    { src: LogoEth, alt: 'Ethereum' },
+    { src: LogoFlow, alt: 'Flow' },
+
 
 ]
 

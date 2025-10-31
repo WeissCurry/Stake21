@@ -5,6 +5,13 @@
 
 ---
 
+## 🌊 Deployment
+
+> 🟢 **Stake21 is deployed on the Flow blockchain**, chosen for its **security, scalability, and developer-friendly architecture**.  
+> All staking logic, auditing, and verification are handled **natively on Flow smart contracts**.
+
+---
+
 ## 🧩 Problem It Solves
 
 Stake21 solves the long-standing issue of **trust and accessibility in DeFi for Muslim investors**.  
@@ -27,14 +34,14 @@ This gap has led to:
 Building a Sharia-compliant DeFi protocol came with both **technical and philosophical** challenges.
 
 **Key Hurdles**
-- **Modeling the Ijarah contract on-chain** – Translating rental-based profit-sharing logic into Solidity required custom structures for Ujrah (rental fees) and validation rights.  
+- **Modeling the Ijarah contract on-chain** – Translating rental-based profit-sharing logic into smart contracts required custom structures for Ujrah (rental fees) and validation rights.  
 - **Balancing decentralization with compliance** – Smart contracts had to allow external Sharia audits **without breaking trustlessness**.  
-- **Integrating transparent Sharia auditing** – The audit process needed to be **verifiable on-chain** yet readable and meaningful to users.
+- **Designing transparent on-chain audit verification** – Ensuring audit data is readable, verifiable, and stored securely on Flow.
 
 **How We Overcame Them**
 - Consulted with **Islamic finance experts** and referenced **MUI Fatwa No.7/2021**.  
-- Built a **modular architecture** (Next.js + Wagmi + Solidity) separating staking logic, audits, and reporting.  
-- Integrated a **Farcaster-based verification layer** for authenticated Sharia reports.
+- Built a **modular architecture** (Next.js + Wagmi + Cadence) separating staking logic, audits, and reporting.  
+- Leveraged **Flow’s resource-oriented model** to ensure secure and auditable transaction flows.
 
 ---
 
@@ -63,7 +70,7 @@ Our core users are **Muslim crypto investors** who want to engage with Web3 **wi
 | [Lido](https://lido.fi) / [Rocket Pool](https://rocketpool.net) | ETH staking | No Sharia compliance or transparency | Certified halal staking, audited on-chain |
 | [HAQQ Network](https://haqq.network) | Islamic blockchain (Layer-1) | Not a staking protocol | Protocol-agnostic, plug-and-play staking layer |
 
-**Stake21** uniquely merges **DeFi technology** with **Islamic finance ethics**, backed by on-chain verification and real auditability.
+**Stake21** uniquely merges **DeFi technology** with **Islamic finance ethics**, backed by **Flow-based smart contracts** and verifiable on-chain auditing.
 
 ---
 
@@ -72,7 +79,7 @@ Our core users are **Muslim crypto investors** who want to engage with Web3 **wi
 Our growth combines **trust-based partnerships** with **community-driven adoption**.
 
 - **Institutional Partnerships** — Collaborate with Sharia councils & Islamic finance boards for certification and co-branding.  
-- **Community Evangelism** — Grow through Muslim Web3 communities (Farcaster, X, Telegram, and local crypto events).  
+- **Community Evangelism** — Grow through Muslim Web3 communities (X, Telegram, and local crypto events).  
 - **DeFi & Web3 Collaborations** — Offer *“Halal Staking Mode”* to existing protocols.  
 - **Content-Driven Marketing** — Publish transparent Sharia audit reports on-chain and across platforms to build credibility.
 
@@ -80,21 +87,20 @@ Our growth combines **trust-based partnerships** with **community-driven adoptio
 
 ## 🧰 Technologies Used
 
-- **Solidity** – Smart contract development for Ijarah-based staking logic.  
+- **Cadence (Flow)** – Smart contract development for Ijarah-based staking logic.  
 - **Next.js** – Frontend for staking dashboard and user onboarding.  
 - **Wagmi + ShadCN** – Wallet connection and modern UI/UX components.  
-- **Farcaster** – Public, decentralized audit verification layer.  
-- **DeFi Integrations** – For node operation and treasury management.
+- **Flow Blockchain** – Handles staking logic, rewards, and on-chain verification.  
 
 ---
 
 ## 🔗 Links
 
-- **Live Project:** [https://stake21.netlify.app/](https://stake21.netlify.app/)  
-- **GitHub Repository:** [https://github.com/riyqnn/Deen](https://github.com/riyqnn/Stake21)  
+- **Live Project:** [https://stake21.ideatecore.com/](https://stake21.ideatecore.com/)  
+- **GitHub Repository:** [https://github.com/weisscurry/Stake21](https://github.com/weisscurry/Stake21)  
 - **Contact:** maulanasykari@gmail.com  
 
 ---
 
 ### ✨ Join Us in Building the Future of Halal DeFi
-> Bringing trust, ethics, and inclusivity to the next billion Web3 users.
+> Bringing trust, ethics, and inclusivity to the next billion Web3 users — now powered by **Flow**.
